@@ -1,39 +1,74 @@
-from keycloak import KeycloakAdmin
+from keycloak import KeycloakOpenID,KeycloakAdmin
 import os
 from dotenv import load_dotenv
 import logging
-
+from faker import Faker
 
 
 
 load_dotenv(override=True)
 logging.basicConfig(level='INFO')
 
-
-keycloak_admin = KeycloakAdmin(
-                        server_url=os.getenv('KEYCLOAK_URL'),
-                        username=os.getenv('KEYCLOAK_ADMIN_PASSWORD'),
-                        password=os.getenv('PASSWORD'),
-                        realm_name="master",
-                        client_id="admin-cli",
-                        grant_type="password",
-                        pool_maxsize=25,
-                        verify=True)
+fake = Faker("ru_RU")
 
 
-class KeycloakAdapter:
+class KeycloakAdminAdapter:
 
-    def create_user():
-        pass
+    def __init__(self,username,password,realm):
+        """We are getting parameters for login and next manipulation"""
+        self._username = username
+        self._password = password
+        self.realm = realm
 
-    def update_user():
-        pass
 
-    def get_user_by_username():
-        pass
+        self.admin = KeycloakAdmin(
+            server_url="http://localhost:8080/",
+            username=self._username,
+            password=self._password,
+            realm_name=self.realm,
+            #user_realm_name="only_if_other_realm_than_master",
+            pool_maxsize=20)
+        
+       
+    def create_user(self, email: str,
+                    username: str,
+                    enabled: bool,
+                    firstname: str,
+                    lastname: str) -> str:
+        """The user creation"""
+        try:
+            new_user = self.admin.create_user({"email": email,
+                                        "username": username,
+                                        "enabled": enabled,
+                                        "firstName": firstname,
+                                        "lastName": lastname})
+            return new_user
+        except Exception as e:
+            logging.error(f'Ошибка создания. Текст ошибки: {e}')
+            return None
 
-    def get_all_users():
-        pass
 
-    def delete_user():
-        pass
+    def get_users(self)-> list:
+        """ Get users lists"""
+        try:
+            users = self.admin.get_users({})
+            return users
+        except Exception as e:
+            logging.error(f"Не удалось получить список пользователей. Ошибка {e}")
+            return None
+
+        
+        
+
+
+
+admin = KeycloakAdminAdapter('admin','admin','master')
+
+
+# print(admin.create_user(email=fake.email(),
+#                         username=fake.user_name(),
+#                         enabled=fake.boolean(),
+#                         firstname=fake.first_name(),
+#                         lastname=fake.last_name()))
+        
+print(admin.get_users())
