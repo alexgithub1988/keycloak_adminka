@@ -136,11 +136,11 @@ class KeycloakAdminAdapter:
 
 
 # здесь пока играемся
-admin = KeycloakAdminAdapter("test")
+# admin = KeycloakAdminAdapter("test")
 
-csv_adapter = CsvAdapter()
-users = csv_adapter.get_list_dicts("file.csv")
-admin.create_from_list(users)
+# csv_adapter = CsvAdapter()
+# users = csv_adapter.get_list_dicts("file.csv")
+# admin.create_from_list(users)
 
 
 # print(admin.get_token())
