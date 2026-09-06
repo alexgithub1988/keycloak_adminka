@@ -2,6 +2,8 @@ import os
 
 from fastapi import APIRouter, File, UploadFile
 
+from app.infrastructure.csv_handler_upload import upload_handler
+
 router = APIRouter()
 
 
@@ -17,5 +19,7 @@ def get_files(file: UploadFile = File(...)) -> dict:  # noqa B008
 
     with open(file_location, "wb") as buffer:
         buffer.write(file.file.read())
+
+    upload_handler(filepath=file_location, realm="master")
 
     return {"filename": f"{file.filename} успешно загружен"}
