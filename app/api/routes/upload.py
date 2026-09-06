@@ -1,17 +1,21 @@
-from fastapi import APIRouter, File, UploadFile
 import os
 
+from fastapi import APIRouter, File, UploadFile
 
 router = APIRouter()
 
 
 UPLOAD_DIR = "upload_files"
-os.makedirs(UPLOAD_DIR, exist_ok=True )
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 @router.post("/files/upload")
-def get_files(file: UploadFile=File(...)):
-     file_location = os.path.join(UPLOAD_DIR, file.filename)
-     with open(file_location, "wb") as buffer:
-          buffer.write(file.file.read())
+def get_files(file: UploadFile = File(...)) -> dict:  # noqa B008
+    file_location = os.path.join(UPLOAD_DIR, file.filename)
+    if not file.filename.endswith(".csv"):
+        return {"error": "Только CSV-файлы разрешены"}
 
-     return {"filename": f"{file.filename} успешно загружен"}
+    with open(file_location, "wb") as buffer:
+        buffer.write(file.file.read())
+
+    return {"filename": f"{file.filename} успешно загружен"}
