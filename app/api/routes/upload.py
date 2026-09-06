@@ -12,7 +12,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/files/upload")
-def get_files(file: UploadFile = File(...)) -> dict:  # noqa B008
+def get_files(file: UploadFile = File(...)) -> dict:  # noqa  B008
+    "Загружаем файл"
     file_location = os.path.join(UPLOAD_DIR, file.filename)
     if not file.filename.endswith(".csv"):
         return {"error": "Только CSV-файлы разрешены"}
@@ -22,4 +23,4 @@ def get_files(file: UploadFile = File(...)) -> dict:  # noqa B008
 
     upload_handler(filepath=file_location, realm="master")
 
-    return {"filename": f"{file.filename} успешно загружен"}
+    return {"result": "Загрузка пользователей применена"}

@@ -112,7 +112,7 @@ class KeycloakAdminAdapter:
             logging.error(f"Не удалось получить список пользователей. Ошибка {e}")
             return None
 
-    def create_from_list(self, list_of_dicts: list):
+    def create_from_list(self, list_of_dicts: list) -> None:
         for dict in list_of_dicts:
             self.create_user(
                 email=dict.get("email"),
@@ -122,9 +122,17 @@ class KeycloakAdminAdapter:
                 firstname=dict.get("firstname"),
             )
 
+    def get_realms_list(self) -> list:
+        """получаем список реалмов"""
+        realm_list_of_dicts = self.admin.get_realms()
+        list_of_realms = [realm_dict["realm"] for realm_dict in realm_list_of_dicts]
+        return list_of_realms
+
 
 # здесь пока играемся
-# admin = KeycloakAdminAdapter("test")
+admin = KeycloakAdminAdapter("master")
+
+print(admin.get_realms_list())
 
 # csv_adapter = CsvAdapter()
 # users = csv_adapter.get_list_dicts("file.csv")
