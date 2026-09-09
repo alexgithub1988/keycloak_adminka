@@ -19,7 +19,11 @@
 
             <ul class="nav nav-pills flex-column">
                 <li class="nav-item mb-2">
-                    <a class="nav-link active" href="#">Пока не придумал:)</a>
+                    <select class="form-select" id="realmSelect">
+                    {% for r in realm %}
+                    <option value="{{ r }}">{{ r }}</option>
+                        {% endfor %}
+                    </select>
                 </li>
                 <li class="nav-item mb-2">
                     <a class="nav-link link-dark" href="#">Получить файл с пользователями</a>

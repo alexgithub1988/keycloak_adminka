@@ -1,7 +1,12 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 
 from app.api.routes import get_user, upload
+from app.infrastructure.keycloack_adapter import KeycloakAdminAdapter
+
+logging.basicConfig(level="INFO")
 
 app = FastAPI()
 
@@ -19,3 +24,9 @@ def root(request: Request):
 
 app.include_router(get_user.router)
 app.include_router(upload.router)
+
+
+admin = KeycloakAdminAdapter("master")
+realm_list = admin.get_realms_list()
+logging.info(f"{realm_list}")
+templates.env.globals["realm"] = realm_list

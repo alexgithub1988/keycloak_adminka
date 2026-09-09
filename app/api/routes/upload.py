@@ -12,7 +12,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/files/upload")
-def get_files(file: UploadFile = File(...)) -> dict:  # noqa  B008
+def get_files(file: UploadFile = File(...)) -> dict:  # noqa: B008
     "Загружаем файл"
     file_location = os.path.join(UPLOAD_DIR, file.filename)
     if not file.filename.endswith(".csv"):

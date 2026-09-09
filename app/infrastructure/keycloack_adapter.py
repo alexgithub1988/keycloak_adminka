@@ -130,9 +130,9 @@ class KeycloakAdminAdapter:
 
 
 # здесь пока играемся
-admin = KeycloakAdminAdapter("master")
+# admin = KeycloakAdminAdapter("master")
 
-print(admin.get_realms_list())
+# print(admin.get_realms_list())
 
 # csv_adapter = CsvAdapter()
 # users = csv_adapter.get_list_dicts("file.csv")
