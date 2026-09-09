@@ -19,26 +19,29 @@
 
             <ul class="nav nav-pills flex-column">
                 <li class="nav-item mb-2">
-                    <select class="form-select" id="realmSelect">
-                    {% for r in realm %}
-                    <option value="{{ r }}">{{ r }}</option>
-                        {% endfor %}
-                    </select>
+                    <!-- ЕДИНАЯ ФОРМА: содержит и выбор реалма, и загрузку файла -->
+                    <form action="/files/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                        <!-- Выпадающий список с выбором реалма -->
+                        <select name="realm" class="form-select mb-2">
+                            {% for r in realm %}
+                                <option value="{{ r }}" {% if loop.first %}selected{% endif %}>{{ r }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <!-- Поле для файла (скрытое) -->
+                        <input type="file" name="file" id="fileInput" accept=".csv" style="display:none;"
+                               onchange="this.form.submit()">
+
+                        <!-- Ссылка-кнопка для выбора файла -->
+                        <label for="fileInput" class="nav-link link-dark" style="cursor: pointer;">
+                            Загрузить файл с пользователями
+                        </label>
+                    </form>
                 </li>
                 <li class="nav-item mb-2">
                     <a class="nav-link link-dark" href="#">Получить файл с пользователями</a>
                 </li>
-                <li class="nav-item mb-2">
-    <form action="/files/upload" method="post" enctype="multipart/form-data" id="uploadForm">
-        <!-- Скрытый input для выбора файла. onchange автоматически отправляет форму -->
-        <input type="file" name="file" id="fileInput" accept=".csv" style="display:none;"
-               onchange="this.form.submit()">
-        <!-- Стилизованный label как ссылка -->
-        <label for="fileInput" class="nav-link link-dark" style="cursor: pointer;">
-            Загрузить файл с пользователями
-        </label>
-    </form>
-    </li>
+                <!-- Удалена вторая дублирующая форма -->
             </ul>
         </nav>
 
