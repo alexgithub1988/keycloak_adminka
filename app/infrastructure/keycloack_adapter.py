@@ -130,7 +130,7 @@ class KeycloakAdminAdapter:
 
 
 # здесь пока играемся
-# admin = KeycloakAdminAdapter("master")
+# admin = KeycloakAdminAdapter("test")
 
 # print(admin.get_realms_list())
 
@@ -150,6 +150,7 @@ class KeycloakAdminAdapter:
 
 
 # users = admin.get_users()
+# print(users)
 # for user in users:
 #     print("User")
 #     print("__________")
