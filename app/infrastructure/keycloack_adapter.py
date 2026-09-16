@@ -2,13 +2,10 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from faker import Faker
 from keycloak import KeycloakAdmin, KeycloakOpenID
 
 load_dotenv(override=True)
 logging.basicConfig(level="INFO")
-
-fake = Faker("ru_RU")
 
 
 class KeycloakAdminAdapter:
@@ -33,7 +30,6 @@ class KeycloakAdminAdapter:
             username="admin",
             password="admin",
             grant_type="password",
-            # scope="openid profile email",
         )
         return self._token
 
@@ -44,7 +40,6 @@ class KeycloakAdminAdapter:
             server_url="http://localhost:8080/",
             token=self._token,
             realm_name=self.realm,
-            # user_realm_name="only_if_other_realm_than_master",
             pool_maxsize=20,
         )
 
@@ -64,22 +59,9 @@ class KeycloakAdminAdapter:
             server_url="http://localhost:8080/",
             token=self._token,
             realm_name=self.realm,
-            # user_realm_name="only_if_other_realm_than_master",
             pool_maxsize=20,
         )
         return admin
-
-    def get_token(self) -> dict:
-        """Это пока что штука для тестов будет немного изменена когда мы будем получать токен при авторизации юзера"""
-
-        token_response = self.oidc.token(
-            username="admin",
-            password="admin",
-            grant_type="password",
-            scope="openid profile email",
-        )
-
-        return token_response
 
     def create_user(
         self, email: str, username: str, enabled: bool, firstname: str, lastname: str
@@ -127,32 +109,3 @@ class KeycloakAdminAdapter:
         realm_list_of_dicts = self.admin.get_realms()
         list_of_realms = [realm_dict["realm"] for realm_dict in realm_list_of_dicts]
         return list_of_realms
-
-
-# здесь пока играемся
-# admin = KeycloakAdminAdapter("test")
-
-# print(admin.get_realms_list())
-
-# csv_adapter = CsvAdapter()
-# users = csv_adapter.get_list_dicts("file.csv")
-# admin.create_from_list(users)
-
-
-# print(admin.get_token())
-
-
-# print(admin.create_user(email=fake.email(),
-#                         username=fake.user_name(),
-#                         enabled=fake.boolean(),
-#                         firstname=fake.first_name(),
-#                         lastname=fake.last_name()))
-
-
-# users = admin.get_users()
-# print(users)
-# for user in users:
-#     print("User")
-#     print("__________")
-#     print(user)
-#     print("___________")
