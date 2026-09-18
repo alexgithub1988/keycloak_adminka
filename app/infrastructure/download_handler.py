@@ -19,3 +19,19 @@ def download_handler(realm: str) -> list:
     except Exception as e:
         logging.error(f"Не удалось получить список пользователей. Ошибка {e}")
         return []
+
+
+def normalize_download_handler(realm: str) -> list:
+    users = download_handler(realm)
+    normalized_users = []
+
+    for user in users:
+        normalized_user = user.copy()
+        attributes = normalized_user.pop("attributes", {})
+
+        for attr_name, attr_values in attributes.items():
+            normalized_user[attr_name] = attr_values[0]
+
+        normalized_users.append(normalized_user)
+
+    return normalized_users
