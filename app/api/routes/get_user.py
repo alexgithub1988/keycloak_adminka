@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.infrastructure.keycloack_adapter import KeycloakAdminAdapter
+from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
 
 router = APIRouter(prefix="/users", tags=["users"])
 

@@ -2,7 +2,7 @@ import logging
 
 from dotenv import load_dotenv
 
-from app.infrastructure.keycloack_adapter import KeycloakAdminAdapter
+from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
 
 load_dotenv(override=True)
 logging.basicConfig(level="INFO")

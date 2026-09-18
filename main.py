@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 
 from app.api.routes import download, get_user, upload
-from app.infrastructure.keycloack_adapter import KeycloakAdminAdapter
+from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
 
 logging.basicConfig(level="INFO")
 
