@@ -21,6 +21,25 @@ def get_files(request: Request, file: UploadFile = File(...), realm: str = Form(
     with open(file_location, "wb") as buffer:
         buffer.write(file.file.read())
 
-    upload_handler(filepath=file_location, realm=realm)
+    result = upload_handler(filepath=file_location, realm=realm)
 
-    return RedirectResponse(url="/?success=upload_complete", status_code=303)
+    total_processed = result["created"] + result["updated"]
+    if total_processed == 0:
+        # Ни одного пользователя не создано/обновлено
+        return RedirectResponse(
+            url=f"/?error=all_failed&created=0&updated=0&skipped={result['skipped']}&realm={realm}",
+            status_code=303,
+        )
+
+    if result["skipped"] > 0 and total_processed > 0:
+        # Частичный успех — показываем warning со статистикой
+        return RedirectResponse(
+            url=f"/?warning=partial_success&created={result['created']}&updated={result['updated']}&skipped={result['skipped']}&realm={realm}",
+            status_code=303,
+        )
+
+    # Полное обновление — показываем success
+    return RedirectResponse(
+        url=f"/?success=upload_complete&created={result['created']}&updated={result['updated']}&skipped={result['skipped']}&realm={realm}",
+        status_code=303,
+    )

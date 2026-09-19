@@ -11,11 +11,37 @@
         <div class="row">
             <nav class="col-md-3 bg-light min-vh-100 p-3 border-end">
                 <h4 class="px-3 mb-4 text-primary">Панель</h4>
+
+                <!-- Инфо о пользователе и кнопки -->
+                <div class="mb-3 px-3">
+                    {% if request.session.get('user_name') or request.session.get('user_email') %}
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                             style="width:36px;height:36px;flex-shrink:0;">
+                            {{ request.session.get('user_name', request.session.get('user_email', 'U'))[0]|upper }}
+                        </div>
+                        <div class="ms-2">
+                            <strong>{{ request.session.get('user_email', 'Пользователь') }}</strong>
+                        </div>
+                    </div>
+                    <a href="/logout" class="btn btn-outline-danger btn-sm w-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor"
+                             class="me-1" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd"
+                                  d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                            <path fill-rule="evenodd"
+                                  d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                        </svg>
+                        Выйти
+                    </a>
+                    {% endif %}
+                </div>
+
                 <ul class="nav nav-pills flex-column">
                     <li class="nav-item mb-2">
                         <select id="realmSelect" class="form-select mb-2">
                             {% for r in realm %}
-                                <option value="{{ r }}" {% if loop.first %}selected{% endif %}>{{ r }}</option>
+                                <option value="{{ r }}" {% if selected_realm and r == selected_realm %}selected{% endif %}>{{ r }}</option>
                             {% endfor %}
                         </select>
                     </li>
@@ -53,6 +79,39 @@
             return document.getElementById('realmSelect').value;
         }
 
+        // Загружает список реалмов из API и заполняет <select>
+        async function loadRealms() {
+            const select = document.getElementById('realmSelect');
+            try {
+                const resp = await fetch('/api/realm/list');
+                const data = await resp.json();
+                select.innerHTML = '';
+                (data.realms || []).forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r;
+                    opt.textContent = r;
+                    select.appendChild(opt);
+                });
+                // Восстанавливаем выбранный реалм из localStorage или из selected_realm
+                const saved = localStorage.getItem('selectedRealm');
+                const server = {{ selected_realm|default('', true)|tojson }};
+                if (saved && [...select.options].some(o => o.value === saved)) {
+                    select.value = saved;
+                } else if (server && [...select.options].some(o => o.value === server)) {
+                    select.value = server;
+                } else if (select.options.length > 0) {
+                    select.selectedIndex = 0;
+                }
+            } catch (e) {
+                console.error('Не удалось загрузить список реалмов:', e);
+            }
+        }
+
+        // При изменении реалма — сохраняем в localStorage
+        document.getElementById('realmSelect').addEventListener('change', () => {
+            localStorage.setItem('selectedRealm', document.getElementById('realmSelect').value);
+        });
+
         function updateRealmAndSubmit(formId) {
             const selectedRealm = getSelectedRealm();
             const realmField = document.getElementById('uploadRealmField');
@@ -66,6 +125,18 @@
             const downloadUrl = `/download?realm=${encodeURIComponent(selectedRealm)}`;
             window.location.href = downloadUrl;
         }
+
+        // Загружаем реалмы при загрузке страницы
+        loadRealms();
+
+        // Автоскрытие алертов через 5 секунд
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                bsAlert.close();
+            });
+        }, 5000);
     </script>
 </body>
 </html>
