@@ -21,7 +21,7 @@ def _get_redirect_uri(request: Request) -> str:
 
 
 @router.get("/login")
-async def login(request: Request):
+def login(request: Request):
     """Перенаправляет на страницу авторизации Keycloak."""
     import secrets
 
@@ -38,7 +38,7 @@ async def login(request: Request):
 
 
 @router.get("/callback")
-async def callback(request: Request):
+def callback(request: Request):
     """Обработка callback от Keycloak: обмен code на token."""
     redirect_uri = _get_redirect_uri(request)
 
@@ -91,7 +91,7 @@ async def callback(request: Request):
 
 
 @router.get("/logout")
-async def logout(request: Request):
+def logout(request: Request):
     """Выход из системы — очищает сессию и редиректит на Keycloak logout."""
     redirect_uri = _get_redirect_uri(request)
 
