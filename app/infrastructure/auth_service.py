@@ -16,7 +16,7 @@ class AuthService:
         self.server_url = os.getenv("KEYCLOAK_URL", "http://localhost:8080/")
         if not self.server_url.endswith("/"):
             self.server_url = self.server_url + "/"
-        self.realm = "master"  # для получения токена логинимся в master
+        self.realm = os.getenv("KC_REALM", "max")  # Use configured realm from .env
         self.client_id = os.getenv("CLIENT_ID", "my_app")
         self.client_secret = os.getenv("CLIENT_SECRET", "")
 

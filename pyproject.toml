@@ -9,3 +9,18 @@ exclude = [".venv", "__pycache__", "build", "dist"]
 select = ["E", "W", "F", "I", "N", "UP", "B"]
 # Игнор
 ignore = ["E501", "D100", "D104"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Разрешаем FastAPI-паттерн Depends()/File()/Form() в значениях по умолчанию
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.params.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Security",
+]
