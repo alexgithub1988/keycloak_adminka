@@ -69,9 +69,17 @@ def callback(request: Request):
         # access_token — токен для API, у него другой kid и другие claims.
         user_info = auth_service.get_user_info(token_response.get("id_token", ""))
         if user_info:
-            request.session["user_email"] = user_info.get("email", "")
-            request.session["user_name"] = user_info.get("preferred_username", "User")
-            request.session["user_id"] = user_info.get("sub", "")
+            email = (
+                user_info.get("email")
+                or user_info.get("preferred_username")
+                or user_info.get("sub")
+            )
+            if email:
+                request.session["user_email"] = email
+                request.session["user_name"] = user_info.get(
+                    "preferred_username", "User"
+                )
+                request.session["user_id"] = user_info.get("sub", "")
 
         # ВАЖНО: не сохраняем access_token/refresh_token в сессии.
         # JWT токены Keycloak слишком большие (1-3 КБ каждый) и вместе

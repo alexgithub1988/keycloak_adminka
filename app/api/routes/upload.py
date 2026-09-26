@@ -1,3 +1,4 @@
+import logging
 import os
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -9,6 +10,7 @@ from app.infrastructure.csv_handler_upload import upload_handler
 from app.infrastructure.models import SessionLocal
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def get_db():
@@ -35,7 +37,7 @@ def get_files(
     client_ip = request.client.host
 
     # Получаем email пользователя из сессии
-    user_email = request.session.get("user_email", "anonymous")
+    user_email = request.session.get("user_email")
 
     # Read file content for audit
     file_content = file.file.read()
@@ -60,6 +62,46 @@ def get_files(
 
     with open(file_location, "wb") as buffer:
         buffer.write(file_content)
+
+    # ================================================================
+    # Валидация CSV по правилам реалма (если правила есть)
+    # ================================================================
+    from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
+    from app.infrastructure.keycloak_admin.validation_service import ValidationService
+
+    service = ValidationService(db=db, realm=realm)
+    rules = service.get_rules()
+    if rules:
+        # Парсим CSV для проверки
+        import csv
+        import io
+
+        try:
+            reader = csv.DictReader(io.StringIO(file_content.decode("utf-8")))
+            rows = list(reader)
+            adapter = KeycloakAdminAdapter(realm)
+            report = service.validate_csv(rows, adapter)
+
+            if report.invalid_rows > 0:
+                # Формируем сообщение об ошибках (первые 5 строк)
+                error_parts = []
+                for v in report.violations[:5]:
+                    parts = []
+                    if v.missing_required:
+                        parts.append(f"missing: {', '.join(v.missing_required)}")
+                    if v.unknown_fields:
+                        parts.append(f"unknown: {', '.join(v.unknown_fields)}")
+                    if v.missing_groups:
+                        parts.append(f"no groups: {', '.join(v.missing_groups)}")
+                    error_parts.append(f"Row {v.row} ({v.email}): {'; '.join(parts)}")
+                detail = "; ".join(error_parts)
+                return RedirectResponse(
+                    url=f"/?error=validation_failed&invalid_rows={report.invalid_rows}&detail={detail}&realm={realm}",
+                    status_code=303,
+                )
+        except Exception as e:
+            logger.warning(f"Validation failed: {e}")
+            # Если валидация упала — всё равно продолжаем загрузку
 
     result = upload_handler(filepath=file_location, realm=realm)
 

@@ -19,7 +19,7 @@ def get_db():
 @router.get("/")
 def get_users(request: Request, db: Session = Depends(get_db)):
     realm = request.query_params.get("realm", "master")
-    user_email = request.session.get("user_email", "anonymous")
+    user_email = request.session.get("user_email")
     client_ip = request.client.host
 
     admin = KeycloakAdminAdapter(realm)
@@ -43,7 +43,7 @@ def get_users(request: Request, db: Session = Depends(get_db)):
 def count_users(request: Request, db: Session = Depends(get_db)):
     """Cчитаем количество пользователей в реалме"""
     realm = request.query_params.get("realm", "master")
-    user_email = request.session.get("user_email", "anonymous")
+    user_email = request.session.get("user_email")
     client_ip = request.client.host
 
     admin = KeycloakAdminAdapter(realm)

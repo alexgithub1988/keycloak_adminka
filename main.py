@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api.routes import audit, auth, download, get_user, realm, upload
+from app.api.routes import audit, auth, download, get_user, realm, upload, validation
 from app.infrastructure.message_handler import MessageHandler
 from app.infrastructure.middleware_auth import AuthMiddleware
 from app.infrastructure.models import Base, engine
@@ -59,6 +59,7 @@ app.include_router(download.router)
 app.include_router(auth.router)
 app.include_router(realm.router)
 app.include_router(audit.router)
+app.include_router(validation.router)
 
 # Реalm-лист грузим лениво (не при старте приложения, а при первом запросе)
 realm_list = []

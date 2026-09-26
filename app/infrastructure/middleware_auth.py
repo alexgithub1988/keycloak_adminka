@@ -23,7 +23,8 @@ class AuthMiddleware:
             return
 
         # Проверяем авторизацию через session из scope (уже инициализирован SessionMiddleware)
-        if "user_email" not in scope.get("session", {}):
+        session = scope.get("session", {})
+        if "user_email" not in session or not session.get("user_email"):
             # Не авторизован — редиректим на login
             redirect = RedirectResponse(url="/login", status_code=307)
             await redirect(scope, receive, send)

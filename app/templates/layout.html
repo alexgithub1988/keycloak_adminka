@@ -65,6 +65,11 @@
                             Аудит-лог
                         </a>
                     </li>
+                    <li class="nav-item mb-2">
+                        <a href="#" class="btn btn-warning w-100" id="validationLink" onclick="navigateToValidation(event)">
+                            Валидация правил
+                        </a>
+                    </li>
                 </ul>
             </nav>
             <main class="col-md-9 p-4">
@@ -84,37 +89,94 @@
             return document.getElementById('realmSelect').value;
         }
 
-        // Загружает список реалмов из API и заполняет <select>
-        async function loadRealms() {
-            const select = document.getElementById('realmSelect');
-            try {
-                const resp = await fetch('/api/realm/list');
-                const data = await resp.json();
-                select.innerHTML = '';
-                (data.realms || []).forEach(r => {
-                    const opt = document.createElement('option');
-                    opt.value = r;
-                    opt.textContent = r;
-                    select.appendChild(opt);
-                });
-                // Восстанавливаем выбранный реалм из localStorage или из selected_realm
-                const saved = localStorage.getItem('selectedRealm');
-                const server = {{ selected_realm|default('', true)|tojson }};
-                if (saved && [...select.options].some(o => o.value === saved)) {
-                    select.value = saved;
-                } else if (server && [...select.options].some(o => o.value === server)) {
-                    select.value = server;
-                } else if (select.options.length > 0) {
-                    select.selectedIndex = 0;
+        // Глобальный Promise, который разрешается когда реалмы загружены
+        window.realmsReady = new Promise(resolve => {
+            let resolved = false;
+            function doResolve() {
+                if (!resolved) { resolved = true; resolve(); }
+            }
+            // Загружает список реалмов из API и заполняет <select>
+            async function loadRealms() {
+                const select = document.getElementById('realmSelect');
+                try {
+                    const resp = await fetch('/api/realm/list');
+                    const data = await resp.json();
+                    select.innerHTML = '';
+                    (data.realms || []).forEach(r => {
+                        const opt = document.createElement('option');
+                        opt.value = r;
+                        opt.textContent = r;
+                        select.appendChild(opt);
+                    });
+                    // Восстанавливаем выбранный реалм из localStorage или из selected_realm
+                    const saved = localStorage.getItem('selectedRealm');
+                    const server = {{ selected_realm|default('', true)|tojson }};
+                    if (saved && [...select.options].some(o => o.value === saved)) {
+                        select.value = saved;
+                    } else if (server && [...select.options].some(o => o.value === server)) {
+                        select.value = server;
+                    } else if (select.options.length > 0) {
+                        select.selectedIndex = 0;
+                    }
+                } catch (e) {
+                    console.error('Не удалось загрузить список реалмов:', e);
+                } finally {
+                    doResolve();
                 }
-            } catch (e) {
-                console.error('Не удалось загрузить список реалмов:', e);
+            }
+
+            // Если select уже есть — загружаем немедленно
+            const selectEl = document.getElementById('realmSelect');
+            if (selectEl) {
+                loadRealms();
+            } else {
+                // Ждём появления элемента
+                const observer = new MutationObserver(() => {
+                    const sel = document.getElementById('realmSelect');
+                    if (sel) {
+                        observer.disconnect();
+                        loadRealms();
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                // Фоллбэк: через 2с всё равно разрешаем
+                setTimeout(doResolve, 2000);
+            }
+        });
+
+        function getSelectedRealm() {
+            const select = document.getElementById('realmSelect');
+            return select ? select.value : null;
+        }
+
+        function navigateToValidation(event) {
+            event.preventDefault();
+            // Всегда ждём загрузки реалмов перед навигацией
+            if (window.realmsReady) {
+                window.realmsReady.then(() => {
+                    // Берём ТОЛЬКО из select (он уже заполнен после realmsReady)
+                    const select = document.getElementById('realmSelect');
+                    const realm = select && select.value ? select.value : 'master';
+                    window.location.href = '/admin/validation?realm=' + encodeURIComponent(realm);
+                });
+            } else {
+                window.location.href = '/admin/validation?realm=master';
             }
         }
 
-        // При изменении реалма — сохраняем в localStorage
-        document.getElementById('realmSelect').addEventListener('change', () => {
-            localStorage.setItem('selectedRealm', document.getElementById('realmSelect').value);
+        // При изменении реалма — сохраняем в localStorage и обновляем страницу если мы на валидации
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'realmSelect') {
+                const newRealm = e.target.value;
+                localStorage.setItem('selectedRealm', newRealm);
+
+                // Если мы на странице валидации — обновляем URL
+                if (window.location.pathname === '/admin/validation') {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('realm', newRealm);
+                    window.location.href = '/admin/validation?' + urlParams.toString();
+                }
+            }
         });
 
         function updateRealmAndSubmit(formId) {
@@ -130,9 +192,6 @@
             const downloadUrl = `/download?realm=${encodeURIComponent(selectedRealm)}`;
             window.location.href = downloadUrl;
         }
-
-        // Загружаем реалмы при загрузке страницы
-        loadRealms();
 
         // Автоскрытие алертов через 5 секунд
         setTimeout(() => {

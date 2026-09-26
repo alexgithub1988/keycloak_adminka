@@ -1,0 +1,364 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Валидация правил для {{ realm }}</h1>
+</div>
+
+<!-- Вкладки -->
+<ul class="nav nav-tabs mb-3" id="validationTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="rules-tab" data-bs-toggle="tab" data-bs-target="#rules-panel" type="button">
+            Правила
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="validate-csv-tab" data-bs-toggle="tab" data-bs-target="#csv-panel" type="button">
+            Валидация CSV
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="validate-existing-tab" data-bs-toggle="tab" data-bs-target="#existing-panel" type="button">
+            Существующие пользователи
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="validationTabContent">
+
+<!-- ======================== Вкладка: Правила ======================== -->
+<div class="tab-pane fade show active" id="rules-panel" role="tabpanel">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">Добавить правило</h5>
+        </div>
+        <div class="card-body">
+            <form id="addRuleForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Тип</label>
+                    <select class="form-select" name="rule_type" required>
+                        <option value="attribute">Атрибут</option>
+                        <option value="group">Группа</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Имя (ключ)</label>
+                    <input type="text" class="form-control" name="rule_name" placeholder="напр. department или manager" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Обязательный</label>
+                    <select class="form-select" name="is_required">
+                        <option value="false">Нет</option>
+                        <option value="true">Да</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Описание</label>
+                    <input type="text" class="form-control" name="description" placeholder="Опционально">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-success">Добавить правило</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">Удалить правила</h5>
+        </div>
+        <div class="card-body">
+            <form id="deleteRulesForm" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Тип для удаления</label>
+                    <select class="form-select" name="rule_type">
+                        <option value="">Все типы</option>
+                        <option value="attribute">Атрибуты</option>
+                        <option value="group">Группы</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Текущие правила</h5>
+            <span id="rulesCount" class="badge bg-secondary">0</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0" id="rulesTable">
+                    <thead>
+                        <tr>
+                            <th>Тип</th>
+                            <th>Имя</th>
+                            <th>Обязательный</th>
+                            <th>Описание</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rulesTableBody">
+                        <tr><td colspan="4" class="text-center text-muted">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== Вкладка: Валидация CSV ======================== -->
+<div class="tab-pane fade" id="csv-panel" role="tabpanel">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">Проверить CSV-файл</h5>
+        </div>
+        <div class="card-body">
+            <form id="validateCsvForm">
+                <div class="mb-3">
+                    <label class="form-label">Текст CSV (вставьте содержимое)</label>
+                    <textarea class="form-control" id="csvText" rows="10" placeholder="email,username,firstName,department,groups&#10;user@example.com,user1,John,IT,admin&#10;..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Проверить</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="csvResult" style="display:none;">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Результат валидации</h5>
+            </div>
+            <div class="card-body">
+                <div id="csvSummary"></div>
+            </div>
+        </div>
+        <div id="csvViolations"></div>
+    </div>
+</div>
+
+<!-- ======================== Вкладка: Существующие пользователи ======================== -->
+<div class="tab-pane fade" id="existing-panel" role="tabpanel">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">Проверить существующих пользователей</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Проверяет всех существующих пользователей в Keycloak по заданным правилам.</p>
+            <button id="btnValidateExisting" class="btn btn-primary">Проверить</button>
+        </div>
+    </div>
+
+    <div id="existingResult" style="display:none;">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Результат валидации</h5>
+            </div>
+            <div class="card-body">
+                <div id="existingSummary"></div>
+            </div>
+        </div>
+        <div id="existingViolations"></div>
+    </div>
+</div>
+
+</div>
+{% endblock %}
+
+<script>
+const DEFAULT_REALM = "{{ realm }}";
+
+function getRealm() {
+    // Приоритет: URL params → select → DEFAULT_REALM
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlRealm = urlParams.get('realm');
+    if (urlRealm) return urlRealm;
+
+    const select = document.getElementById('realmSelect');
+    if (select && select.options && select.options.length > 0) {
+        return select.value;
+    }
+    return DEFAULT_REALM || 'master';
+}
+
+function showSummary(containerId, report) {
+    const el = document.getElementById(containerId);
+    const color = report.invalid_rows === 0 ? 'success' : (report.valid_rows === 0 ? 'danger' : 'warning');
+    el.innerHTML = `
+        <div class="alert alert-${color}">
+            <h5>Итого строк: ${report.total_rows}</h5>
+            <p>✅ Валидны: <strong>${report.valid_rows}</strong></p>
+            <p>❌ Ошибки: <strong>${report.invalid_rows}</strong></p>
+            ${report.stats?.unknown_fields?.length ? `
+                <hr>
+                <strong>Неизвестные поля:</strong> ${report.stats.unknown_fields.join(', ')}
+            ` : ''}
+            ${report.stats?.missing_required_fields?.length ? `
+                <hr>
+                <strong>Обязательные атрибуты:</strong> ${report.stats.missing_required_fields.join(', ')}
+            ` : ''}
+            ${report.stats?.missing_group_fields?.length ? `
+                <hr>
+                <strong>Обязательные группы:</strong> ${report.stats.missing_group_fields.join(', ')}
+            ` : ''}
+        </div>
+    `;
+}
+
+function showViolations(containerId, violations) {
+    const el = document.getElementById(containerId);
+    if (!violations?.length) {
+        el.innerHTML = '<div class="alert alert-success">Нарушений не найдено!</div>';
+        return;
+    }
+    let html = '<div class="card"><div class="card-header"><h5 class="mb-0">Нарушения (' + violations.length + ')</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-sm table-striped mb-0"><thead><tr><th>#</th><th>Email</th><th>Ошибка</th><th>Детали</th></tr></thead><tbody>';
+    violations.forEach(v => {
+        const errors = [];
+        if (v.missing_required?.length) errors.push('Отсутствуют: ' + v.missing_required.join(', '));
+        if (v.unknown_fields?.length) errors.push('Неизвестные поля: ' + v.unknown_fields.join(', '));
+        if (v.missing_groups?.length) errors.push('Нет групп: ' + v.missing_groups.join(', '));
+        html += `<tr><td>${v.row || '-'}</td><td>${v.email || '-'}</td><td class="text-danger">${errors.join('; ')}</td><td><small class="text-muted">${JSON.stringify(v)}</small></td></tr>`;
+    });
+    html += '</tbody></table></div></div></div>';
+    el.innerHTML = html;
+}
+
+// ================================================================
+// Загрузка правил
+// ================================================================
+
+function loadRules() {
+    fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()))
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('rulesTableBody');
+            document.getElementById('rulesCount').textContent = data.rules.length;
+            if (!data.rules.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Нет правил. Добавьте первое!</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.rules.map(r => `
+                <tr>
+                    <td><span class="badge bg-${r.rule_type === 'attribute' ? 'info' : 'primary'}">${r.rule_type}</span></td>
+                    <td>${r.rule_name}</td>
+                    <td>${r.is_required ? '<span class="text-danger fw-bold">Да</span>' : 'Нет'}</td>
+                    <td>${r.description || '-'}</td>
+                </tr>
+            `).join('');
+        })
+        .catch(e => {
+            document.getElementById('rulesTableBody').innerHTML = `<tr><td colspan="4" class="text-danger">Ошибка: ${e}</td></tr>`;
+        });
+}
+
+// ================================================================
+// Добавление правила
+// ================================================================
+
+document.getElementById('addRuleForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const rules = [{
+        rule_type: fd.get('rule_type'),
+        rule_name: fd.get('rule_name'),
+        is_required: fd.get('is_required') === 'true',
+        description: fd.get('description'),
+    }];
+    fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()), {
+        method: 'POST',
+        body: new URLSearchParams({ rules_json: JSON.stringify(rules) }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            this.reset();
+            loadRules();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(e => alert('Ошибка: ' + e));
+});
+
+// ================================================================
+// Удаление правил
+// ================================================================
+
+document.getElementById('deleteRulesForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const ruleType = fd.get('rule_type') || null;
+    fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()) + (ruleType ? '&rule_type=' + encodeURIComponent(ruleType) : ''), {
+        method: 'DELETE',
+        body: new URLSearchParams({ rule_type: ruleType || '' }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) loadRules();
+    })
+    .catch(e => alert('Ошибка: ' + e));
+});
+
+// ================================================================
+// Валидация CSV
+// ================================================================
+
+document.getElementById('validateCsvForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const csvText = document.getElementById('csvText').value;
+    if (!csvText.trim()) { alert('Вставьте CSV'); return; }
+
+    const btn = this.querySelector('button');
+    btn.disabled = true; btn.textContent = 'Проверка...';
+
+    fetch('/api/validation/validate-csv?realm=' + encodeURIComponent(getRealm()), {
+        method: 'POST',
+        body: new URLSearchParams({ file: csvText }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false; btn.textContent = 'Проверить';
+        if (!data.ok) { alert('Ошибка: ' + data.error); return; }
+        document.getElementById('csvResult').style.display = 'block';
+        showSummary('csvSummary', data.report);
+        showViolations('csvViolations', data.report.violations);
+    })
+    .catch(e => { btn.disabled = false; btn.textContent = 'Проверить'; alert('Ошибка: ' + e); });
+});
+
+// ================================================================
+// Валидация существующих пользователей
+// ================================================================
+
+document.getElementById('btnValidateExisting')?.addEventListener('click', function() {
+    this.disabled = true; this.textContent = 'Проверка...';
+    fetch('/api/validation/validate-existing?realm=' + encodeURIComponent(getRealm()))
+        .then(r => r.json())
+        .then(data => {
+            this.disabled = false; this.textContent = 'Проверить';
+            if (!data.ok) { alert('Ошибка: ' + data.error); return; }
+            document.getElementById('existingResult').style.display = 'block';
+            showSummary('existingSummary', data.report);
+            showViolations('existingViolations', data.report.violations);
+        })
+        .catch(e => { this.disabled = false; this.textContent = 'Проверить'; alert('Ошибка: ' + e); });
+});
+
+// ================================================================
+// Инициализация — ждём загрузки реалмов перед первым запросом
+// ================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Ждём пока layout.html загрузит реалмы в select
+    if (window.realmsReady) {
+        window.realmsReady.then(() => {
+            loadRules();
+        });
+    } else {
+        // Фоллбэк если realmsReady ещё не определён
+        setTimeout(loadRules, 500);
+    }
+});
+</script>

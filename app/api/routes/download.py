@@ -51,7 +51,7 @@ def download_file(request: Request, realm: str, db: Session = Depends(get_db)):
     )
 
     # Получаем email пользователя из сессии и IP-адрес
-    user_email = request.session.get("user_email", "anonymous")
+    user_email = request.session.get("user_email")
     client_ip = request.client.host
 
     # Read file content for audit

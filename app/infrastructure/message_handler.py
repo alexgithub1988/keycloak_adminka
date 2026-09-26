@@ -72,5 +72,18 @@ class MessageHandler:
                     "icon": "exclamation-triangle-fill",
                     "text": "Не удалось создать ни одного пользователя. Проверьте формат CSV.",
                 }
+            elif request.query_params.get("error") == "validation_failed":
+                invalid_rows = request.query_params.get("invalid_rows", "0")
+                detail = request.query_params.get("detail", "")
+                message = {
+                    "type": "danger",
+                    "icon": "x-octagon-fill",
+                    "text": f"CSV не прошёл валидацию: {invalid_rows} строк с ошибками. Проверьте обязательные поля.",
+                }
+                stats = (
+                    detail
+                    if detail
+                    else f"{invalid_rows} строк нарушают правила валидации реалма"
+                )
 
         return message, stats
