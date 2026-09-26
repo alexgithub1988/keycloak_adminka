@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+
+{% block title %}Аудит-лог{% endblock %}
+
+{% block content %}
+<style>
+    .audit-file-name {
+        font-family: monospace;
+        font-size: 0.85rem;
+        background-color: #f8f9fa;
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+        word-break: break-all;
+    }
+    .audit-timestamp {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    .audit-user-email {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #495057;
+    }
+    .audit-realm {
+        font-size: 0.85rem;
+        background-color: #e9ecef;
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Аудит-лог</h2>
+            <p class="text-muted">История действий пользователей в системе</p>
+
+            {% if audit_records %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Дата и время</th>
+                            <th>Действие</th>
+                            <th>Пользователь</th>
+                            <th>Файл</th>
+                            <th>Реалм</th>
+                            <th>Результат</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in audit_records %}
+                        <tr>
+                            <td><span class="audit-timestamp">{{ record.timestamp.strftime('%d.%m.%y %H:%M:%S') if record.timestamp else '' }}</span></td>
+                            <td>
+                                {% if record.action == 'UPLOAD_FILE' %}
+                                    <span class="badge bg-primary">Загрузка файла</span>
+                                {% elif record.action == 'VIEW_USERS' %}
+                                    <span class="badge bg-info">Просмотр польз.</span>
+                                {% elif record.action == 'DOWNLOAD_FILE' %}
+                                    <span class="badge bg-success">Скачивание</span>
+                                {% elif record.action == 'VIEW_USERS_COUNT' %}
+                                    <span class="badge bg-secondary">Подсчет польз.</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">{{ record.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="audit-user-email">{{ record.user_email or 'Аноним' }}</span></td>
+                            <td>
+                                {% if record.file_name %}
+                                    <span class="audit-file-name" title="{{ record.file_name }}">{{ record.file_name[:30] }}{% if record.file_name|length > 30 %}...{% endif %}</span>
+                                    {% if record.file_path %}
+                                        <br>
+                                        <a href="/download/file/{{ record.id }}" class="btn btn-sm btn-outline-primary mt-1" target="_blank" title="Скачать файл">
+                                            <i class="fas fa-download"></i> Скачать
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.realm %}
+                                    <span class="audit-realm">{{ record.realm }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.result == 'SUCCESS' %}
+                                    <span class="badge bg-success">Успешно</span>
+                                {% elif record.result == 'FAILED' %}
+                                    <span class="badge bg-danger">Ошибка</span>
+                                {% elif record.result == 'PARTIAL_SUCCESS' %}
+                                    <span class="badge bg-warning text-dark">Частично</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ record.result or 'Неизв.' }}</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="text-muted" title="{{ record.ip_address }}">{{ record.ip_address or '-' }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <h4 class="alert-heading">Нет записей аудита</h4>
+                <p>В системе пока нет записей аудита.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

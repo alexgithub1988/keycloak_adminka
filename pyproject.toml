@@ -8,4 +8,4 @@ exclude = [".venv", "__pycache__", "build", "dist"]
 # Проверка
 select = ["E", "W", "F", "I", "N", "UP", "B"]
 # Игнор
-ignore = ["E501", "D100", "D104"]
+ignore = ["E501", "D100", "D104", "B008"]

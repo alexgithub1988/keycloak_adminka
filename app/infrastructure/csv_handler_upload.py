@@ -29,7 +29,6 @@ def upload_handler(filepath: str, realm: str) -> dict:
     logging.info("Загружаем юзеров")
     result = upload.create_from_list(get_list)
 
-    total_processed = result["created"] + result["updated"]
     if result["skipped"] > 0:
         logging.warning(
             f"Часть пользователей не создана/обновлена: {result['skipped']} из {len(get_list)}"
