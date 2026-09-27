@@ -1,20 +1,15 @@
 """Сервис валидации данных Keycloak по правилам для реалма.
 
-Гибридный подход: приоритет у БД, fallback на JSON-файл.
+Правила хранятся исключительно в БД через SQLAlchemy.
 """
 
-import json
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
-
-CONFIGS_DIR = Path(__file__).parent.parent.parent.parent / "configs" / "realm_rules"
-CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass
@@ -58,26 +53,21 @@ class ValidationService:
         self.realm = realm
 
     # ================================================================
-    # CRUD правил (БД + JSON fallback)
+    # CRUD правил (только БД, через SQLAlchemy)
     # ================================================================
 
     def get_rules(self) -> list[Rule]:
-        """Загружает все правила для текущего реалма (БД → JSON)."""
-        db_rules = self._get_rules_from_db()
-        if db_rules:
-            return db_rules
-        return self._get_rules_from_json()
+        """Загружает все правила для текущего реалма из БД."""
+        return self._get_rules_from_db()
 
     def set_rules(self, rules: list[dict]) -> list[str]:
-        """Создаёт/обновляет правила (сохраняет и в БД, и в JSON)."""
+        """Создаёт/обновляет правила в БД."""
         self._save_rules_to_db(rules)
-        self._save_rules_to_json(rules)
         return [r.get("rule_name", "") for r in rules if r.get("rule_name")]
 
     def delete_rules(self, rule_type: str | None = None) -> None:
-        """Удаляет правила (и из БД, и из JSON)."""
+        """Удаляет правила из БД."""
         self._delete_rules_from_db(rule_type)
-        self._delete_rules_from_json(rule_type)
 
     # ================================================================
     # Валидация CSV
@@ -244,21 +234,42 @@ class ValidationService:
         ]
 
     def _save_rules_to_db(self, rules: list[dict]) -> None:
+        """Добавляет новые правила или обновляет существующие (upsert),
+        не затрагивая остальные правила реалма. Одному реалму может
+        принадлежать сколь угодно много атрибутов и групп одновременно.
+        """
         from app.infrastructure.models.validation_rule import (
             RealmValidationRule as Model,
         )
 
-        self.db.query(Model).filter(Model.realm == self.realm).delete()
         for r in rules:
-            self.db.add(
-                Model(
-                    realm=self.realm,
-                    rule_type=r.get("rule_type", ""),
-                    rule_name=r.get("rule_name", "").strip(),
-                    is_required=bool(r.get("is_required", False)),
-                    description=r.get("description", ""),
+            rule_type = r.get("rule_type", "")
+            rule_name = r.get("rule_name", "").strip()
+            if not rule_name:
+                continue
+
+            existing = (
+                self.db.query(Model)
+                .filter(
+                    Model.realm == self.realm,
+                    Model.rule_type == rule_type,
+                    Model.rule_name == rule_name,
                 )
+                .first()
             )
+            if existing:
+                existing.is_required = bool(r.get("is_required", False))
+                existing.description = r.get("description", "")
+            else:
+                self.db.add(
+                    Model(
+                        realm=self.realm,
+                        rule_type=rule_type,
+                        rule_name=rule_name,
+                        is_required=bool(r.get("is_required", False)),
+                        description=r.get("description", ""),
+                    )
+                )
         self.db.commit()
 
     def _delete_rules_from_db(self, rule_type: str | None) -> None:
@@ -271,56 +282,3 @@ class ValidationService:
             q = q.filter(Model.rule_type == rule_type)
         q.delete(synchronize_session="fetch")
         self.db.commit()
-
-    # ================================================================
-    # JSON CRUD
-    # ================================================================
-
-    def _get_rules_from_json(self) -> list[Rule]:
-        config_path = CONFIGS_DIR / f"{self.realm}.json"
-        if not config_path.exists():
-            return []
-        try:
-            data = json.loads(config_path.read_text(encoding="utf-8"))
-            rules = data.get("rules", [])
-            return [
-                Rule(
-                    rule_type=r.get("rule_type", ""),
-                    rule_name=r.get("rule_name", "").strip(),
-                    is_required=bool(r.get("is_required", False)),
-                    description=r.get("description", ""),
-                )
-                for r in rules
-                if r.get("rule_name")
-            ]
-        except Exception as e:
-            logger.error(f"Ошибка чтения JSON config {config_path}: {e}")
-            return []
-
-    def _save_rules_to_json(self, rules: list[dict]) -> None:
-        config_path = CONFIGS_DIR / f"{self.realm}.json"
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        data = {"realm": self.realm, "rules": rules}
-        config_path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-    def _delete_rules_from_json(self, rule_type: str | None) -> None:
-        config_path = CONFIGS_DIR / f"{self.realm}.json"
-        if not config_path.exists():
-            return
-        try:
-            data = json.loads(config_path.read_text(encoding="utf-8"))
-            if rule_type:
-                data["rules"] = [
-                    r for r in data.get("rules", []) if r.get("rule_type") != rule_type
-                ]
-            else:
-                data["rules"] = []
-            config_path.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        except Exception as e:
-            logger.error(f"Ошибка удаления JSON config {config_path}: {e}")

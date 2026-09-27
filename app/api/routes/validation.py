@@ -5,7 +5,7 @@ import io
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Body, Depends, Form, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -47,11 +47,15 @@ def validation_page(request: Request, db: Session = Depends(get_db)):
     realm = request.query_params.get("realm", "master")
     service = _make_service(realm, db)
     rules = service.get_rules()
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "validation.html",
         {"realm": realm, "rules": rules},
     )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 # ================================================================
@@ -61,7 +65,7 @@ def validation_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/api/validation/rules")
 def api_get_rules(
-    realm: str = "master",
+    realm: str = Query("master"),
     db: Session = Depends(get_db),
 ):
     """Получить список правил валидации для реалма."""
@@ -82,17 +86,38 @@ def api_get_rules(
 
 @router.post("/api/validation/rules")
 def api_set_rules(
-    rules_json: str = Form(...),
-    realm: str = "master",
+    data: dict = Body(...),
+    realm: str = Query("master"),
     db: Session = Depends(get_db),
 ):
     """Установить правила валидации для реалма."""
     import json
 
-    try:
-        rules = json.loads(rules_json)
-    except Exception:
-        return {"ok": False, "error": "Invalid JSON"}
+    # Поддерживаем разные форматы body
+    rules = None
+
+    # Если прислали JSON с rules_json
+    if "rules_json" in data:
+        rules_str = data["rules_json"]
+        if isinstance(rules_str, str):
+            try:
+                rules = json.loads(rules_str)
+            except Exception:
+                return {"ok": False, "error": "Invalid JSON in rules_json"}
+        elif isinstance(rules_str, list):
+            rules = rules_str
+    # Если прислали JSON с rules
+    elif "rules" in data and isinstance(data["rules"], list):
+        rules = data["rules"]
+    # Если Form data с rules_json
+    elif "rules_json" in data:
+        try:
+            rules = json.loads(data["rules_json"])
+        except Exception:
+            return {"ok": False, "error": "Invalid JSON in rules_json"}
+
+    if not rules or not isinstance(rules, list):
+        return {"ok": False, "error": "No valid rules provided"}
 
     service = _make_service(realm, db)
     created = service.set_rules(rules)
@@ -101,8 +126,8 @@ def api_set_rules(
 
 @router.delete("/api/validation/rules")
 def api_delete_rules(
-    rule_type: str | None = Form(None),
-    realm: str = "master",
+    rule_type: str | None = Query(None),
+    realm: str = Query("master"),
     db: Session = Depends(get_db),
 ):
     """Удалить правила (все или по типу)."""
@@ -119,7 +144,7 @@ def api_delete_rules(
 @router.post("/api/validation/validate-csv")
 def api_validate_csv(
     file: str = Form(...),  # content of file as text
-    realm: str = "master",
+    realm: str = Query("master"),
     db: Session = Depends(get_db),
 ):
     """Валидирует CSV-данные по правилам реалма."""
@@ -164,7 +189,7 @@ def api_validate_csv(
 
 @router.get("/api/validation/validate-existing")
 def api_validate_existing(
-    realm: str = "master",
+    realm: str = Query("master"),
     db: Session = Depends(get_db),
 ):
     """Валидирует существующих пользователей в Keycloak по правилам."""

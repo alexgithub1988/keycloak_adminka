@@ -33,33 +33,33 @@
             <h5 class="mb-0">Добавить правило</h5>
         </div>
         <div class="card-body">
-            <form id="addRuleForm" class="row g-3">
+            <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Тип</label>
-                    <select class="form-select" name="rule_type" required>
+                    <select id="addRuleType" class="form-select">
                         <option value="attribute">Атрибут</option>
                         <option value="group">Группа</option>
                     </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Имя (ключ)</label>
-                    <input type="text" class="form-control" name="rule_name" placeholder="напр. department или manager" required>
+                    <input id="addRuleName" type="text" class="form-control" placeholder="напр. department или manager">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Обязательный</label>
-                    <select class="form-select" name="is_required">
+                    <select id="addIsRequired" class="form-select">
                         <option value="false">Нет</option>
                         <option value="true">Да</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Описание</label>
-                    <input type="text" class="form-control" name="description" placeholder="Опционально">
+                    <input id="addDescription" type="text" class="form-control" placeholder="Опционально">
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-success">Добавить правило</button>
+                    <button type="button" onclick="addRule()" class="btn btn-success">Добавить правило</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -68,19 +68,19 @@
             <h5 class="mb-0">Удалить правила</h5>
         </div>
         <div class="card-body">
-            <form id="deleteRulesForm" class="row g-3">
+            <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Тип для удаления</label>
-                    <select class="form-select" name="rule_type">
+                    <select id="deleteRuleType" class="form-select">
                         <option value="">Все типы</option>
                         <option value="attribute">Атрибуты</option>
                         <option value="group">Группы</option>
                     </select>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-danger">Удалить</button>
+                    <button type="button" onclick="deleteRules()" class="btn btn-danger">Удалить</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -165,7 +165,6 @@
 </div>
 
 </div>
-{% endblock %}
 
 <script>
 const DEFAULT_REALM = "{{ realm }}";
@@ -186,25 +185,25 @@ function getRealm() {
 function showSummary(containerId, report) {
     const el = document.getElementById(containerId);
     const color = report.invalid_rows === 0 ? 'success' : (report.valid_rows === 0 ? 'danger' : 'warning');
-    el.innerHTML = `
-        <div class="alert alert-${color}">
-            <h5>Итого строк: ${report.total_rows}</h5>
-            <p>✅ Валидны: <strong>${report.valid_rows}</strong></p>
-            <p>❌ Ошибки: <strong>${report.invalid_rows}</strong></p>
-            ${report.stats?.unknown_fields?.length ? `
-                <hr>
-                <strong>Неизвестные поля:</strong> ${report.stats.unknown_fields.join(', ')}
-            ` : ''}
-            ${report.stats?.missing_required_fields?.length ? `
-                <hr>
-                <strong>Обязательные атрибуты:</strong> ${report.stats.missing_required_fields.join(', ')}
-            ` : ''}
-            ${report.stats?.missing_group_fields?.length ? `
-                <hr>
-                <strong>Обязательные группы:</strong> ${report.stats.missing_group_fields.join(', ')}
-            ` : ''}
-        </div>
-    `;
+    var innerHTMLContent =
+        '<div class="alert alert-' + color + '">' +
+            '<h5>Итого строк: ' + report.total_rows + '</h5>' +
+            '<p>✅ Валидны: <strong>' + report.valid_rows + '</strong></p>' +
+            '<p>❌ Ошибки: <strong>' + report.invalid_rows + '</strong></p>' +
+            (report.stats?.unknown_fields?.length ?
+                '<hr>' +
+                '<strong>Неизвестные поля:</strong> ' + report.stats.unknown_fields.join(', ') +
+            '' : '') +
+            (report.stats?.missing_required_fields?.length ?
+                '<hr>' +
+                '<strong>Обязательные атрибуты:</strong> ' + report.stats.missing_required_fields.join(', ') +
+            '' : '') +
+            (report.stats?.missing_group_fields?.length ?
+                '<hr>' +
+                '<strong>Обязательные группы:</strong> ' + report.stats.missing_group_fields.join(', ') +
+            '' : '') +
+        '</div>';
+    el.innerHTML = innerHTMLContent;
 }
 
 function showViolations(containerId, violations) {
@@ -219,7 +218,7 @@ function showViolations(containerId, violations) {
         if (v.missing_required?.length) errors.push('Отсутствуют: ' + v.missing_required.join(', '));
         if (v.unknown_fields?.length) errors.push('Неизвестные поля: ' + v.unknown_fields.join(', '));
         if (v.missing_groups?.length) errors.push('Нет групп: ' + v.missing_groups.join(', '));
-        html += `<tr><td>${v.row || '-'}</td><td>${v.email || '-'}</td><td class="text-danger">${errors.join('; ')}</td><td><small class="text-muted">${JSON.stringify(v)}</small></td></tr>`;
+        html += '<tr><td>' + (v.row || '-') + '</td><td>' + (v.email || '-') + '</td><td class="text-danger">' + errors.join('; ') + '</td><td><small class="text-muted">' + JSON.stringify(v) + '</small></td></tr>';
     });
     html += '</tbody></table></div></div></div>';
     el.innerHTML = html;
@@ -230,26 +229,41 @@ function showViolations(containerId, violations) {
 // ================================================================
 
 function loadRules() {
+    console.log('Loading rules for realm:', getRealm());
     fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()))
-        .then(r => r.json())
+        .then(response => {
+            console.log('Load rules response status:', response.status);
+            if (!response.ok) {
+                throw new Error('HTTP error! Status: ' + response.status);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Loaded rules data:', data);
             const tbody = document.getElementById('rulesTableBody');
-            document.getElementById('rulesCount').textContent = data.rules.length;
-            if (!data.rules.length) {
+            document.getElementById('rulesCount').textContent = data.rules ? data.rules.length : 0;
+            if (!data.rules || !data.rules.length) {
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Нет правил. Добавьте первое!</td></tr>';
                 return;
             }
-            tbody.innerHTML = data.rules.map(r => `
-                <tr>
-                    <td><span class="badge bg-${r.rule_type === 'attribute' ? 'info' : 'primary'}">${r.rule_type}</span></td>
-                    <td>${r.rule_name}</td>
-                    <td>${r.is_required ? '<span class="text-danger fw-bold">Да</span>' : 'Нет'}</td>
-                    <td>${r.description || '-'}</td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = data.rules.map(function(r) {
+                var badgeClass = r.rule_type === 'attribute' ? 'info' : 'primary';
+                var requiredBadge = r.is_required ? '<span class="badge bg-danger">Да</span>' : '<span class="badge bg-secondary">Нет</span>';
+                var description = r.description || '-';
+                return '<tr>' +
+                    '<td><span class="badge bg-' + badgeClass + '">' + r.rule_type + '</span></td>' +
+                    '<td>' + r.rule_name + '</td>' +
+                    '<td>' + requiredBadge + '</td>' +
+                    '<td>' + description + '</td>' +
+                    '</tr>';
+            }).join('');
         })
         .catch(e => {
-            document.getElementById('rulesTableBody').innerHTML = `<tr><td colspan="4" class="text-danger">Ошибка: ${e}</td></tr>`;
+            console.error('Error loading rules:', e);
+            const tbody = document.getElementById('rulesTableBody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Ошибка загрузки правил: ' + e.message + '</td></tr>';
+            }
         });
 }
 
@@ -257,49 +271,96 @@ function loadRules() {
 // Добавление правила
 // ================================================================
 
-document.getElementById('addRuleForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const fd = new FormData(this);
+function addRule() {
+    const ruleType = document.getElementById('addRuleType').value;
+    const ruleName = document.getElementById('addRuleName').value.trim();
+    const isRequired = document.getElementById('addIsRequired').value === 'true';
+    const description = document.getElementById('addDescription').value.trim();
+
+    if (!ruleName) {
+        alert('Введите имя правила');
+        return;
+    }
+
     const rules = [{
-        rule_type: fd.get('rule_type'),
-        rule_name: fd.get('rule_name'),
-        is_required: fd.get('is_required') === 'true',
-        description: fd.get('description'),
+        rule_type: ruleType,
+        rule_name: ruleName,
+        is_required: isRequired,
+        description: description,
     }];
+
+    console.log('Sending POST to /api/validation/rules with:', rules);
+    console.log('Realm being used:', getRealm());
+
     fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()), {
         method: 'POST',
-        body: new URLSearchParams({ rules_json: JSON.stringify(rules) }),
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'  // Some servers check for this header
+        },
+        body: JSON.stringify({ rules: rules }),
     })
-    .then(r => r.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response URL:', response.url);
+        if (!response.ok) {
+            throw new Error('HTTP error! Status: ' + response.status);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Server response:', data);
         if (data.ok) {
-            this.reset();
-            loadRules();
+            document.getElementById('addRuleName').value = '';
+            document.getElementById('addDescription').value = '';
+            document.getElementById('addIsRequired').value = 'false';
+            loadRules(); // Refresh the table
+            alert('Правило успешно добавлено!');
         } else {
-            alert('Ошибка: ' + data.error);
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
         }
     })
-    .catch(e => alert('Ошибка: ' + e));
-});
+    .catch(e => {
+        console.error('Error adding rule:', e);
+        // Try to read the response even if it's an error
+        fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()))
+            .then(r => r.text())
+            .then(text => {
+                console.log('Error response content:', text.substring(0, 200) + '...');
+            });
+        alert('Ошибка при добавлении правила: ' + e.message);
+    });
+}
 
-// ================================================================
-// Удаление правил
-// ================================================================
+function deleteRules() {
+    console.log('Deleting rules for realm:', getRealm());
+    const ruleType = document.getElementById('deleteRuleType').value || null;
+    console.log('Rule type to delete:', ruleType);
 
-document.getElementById('deleteRulesForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const fd = new FormData(this);
-    const ruleType = fd.get('rule_type') || null;
     fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()) + (ruleType ? '&rule_type=' + encodeURIComponent(ruleType) : ''), {
         method: 'DELETE',
-        body: new URLSearchParams({ rule_type: ruleType || '' }),
     })
-    .then(r => r.json())
+    .then(response => {
+        console.log('Delete response status:', response.status);
+        if (!response.ok) {
+            throw new Error('HTTP error! Status: ' + response.status);
+        }
+        return response.json();
+    })
     .then(data => {
-        if (data.ok) loadRules();
+        console.log('Delete API response:', data);
+        if (data.ok) {
+            loadRules(); // Refresh the table
+            alert('Правила успешно удалены!');
+        } else {
+            alert('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка'));
+        }
     })
-    .catch(e => alert('Ошибка: ' + e));
-});
+    .catch(e => {
+        console.error('Error deleting rules:', e);
+        alert('Ошибка при удалении правил: ' + e.message);
+    });
+}
 
 // ================================================================
 // Валидация CSV
@@ -362,3 +423,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+{% endblock %}
