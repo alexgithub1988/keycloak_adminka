@@ -1,0 +1,17 @@
+.venv
+__pycache__
+*.pyc
+.git
+.github
+.pytest_cache
+.ruff_cache
+get_users_script
+audit.db
+upload_files
+download_files
+uploads
+.env
+env_sample
+README.md
+.pre-commit-config.yaml
+requirements-dev.txt
