@@ -1,5 +1,6 @@
 import logging
 import os
+import urllib.parse
 
 import jwt
 from dotenv import load_dotenv
@@ -7,6 +8,7 @@ from jwt import PyJWKClient
 from keycloak import KeycloakOpenID
 
 load_dotenv(override=True)
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -45,9 +47,7 @@ class AuthService:
         if state:
             params["state"] = state
         if prompt:
-            params["prompt"] = prompt
-
-        import urllib.parse
+            params["prompt"] = prompt  # промт тут на будующее сейчас пустой
 
         query_string = urllib.parse.urlencode(params)
         auth_url = f"{self.server_url}realms/{self.realm}/protocol/openid-connect/auth?{query_string}"
@@ -72,7 +72,7 @@ class AuthService:
             )
             return token
         except Exception as e:
-            logging.error(f"Ошибка обмена code на token: {e}")
+            logger.error(f"Ошибка обмена code на token: {e}")
             raise
 
     def get_user_info(self, access_token: str) -> dict:
@@ -90,12 +90,11 @@ class AuthService:
             )
             return user_info
         except Exception as e:
-            logging.error(f"Ошибка верификации токена: {e}")
+            logger.error(f"Ошибка верификации токена: {e}")
             return {}
 
     def get_logout_url(self, redirect_uri: str) -> str:
         """Генерирует URL для выхода."""
-        import urllib.parse
 
         params = {
             "post_logout_redirect_uri": redirect_uri,
@@ -111,7 +110,7 @@ class AuthService:
             token = self.oidc.refresh_token(refresh_token)
             return token
         except Exception as e:
-            logging.error(f"Ошибка обновления токена: {e}")
+            logger.error(f"Ошибка обновления токена: {e}")
             raise
 
 

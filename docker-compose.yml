@@ -1,25 +1,28 @@
+version: '3.8'
+
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: keycloak_adminka_app
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
-      # Позволяет коннектиться к Keycloak, поднятому на хосте (docker run из README),
-      # если в .env указан KEYCLOAK_URL=http://host.docker.internal:8080.
-      # Для боевого Keycloak просто меняете KEYCLOAK_URL в .env — без правок этого файла.
-      - PYTHONUNBUFFERED=1
+      PYTHONUNBUFFERED: "1"
     extra_hosts:
-      # На Linux host.docker.internal не резолвится по умолчанию — добавляем явно.
       - "host.docker.internal:host-gateway"
     volumes:
-      # SQLite-база аудита/правил валидации — должна переживать пересборки контейнера
       - ./audit.db:/code/audit.db
-      # Рантайм-директории с файлами пользователей
       - ./upload_files:/code/upload_files
       - ./download_files:/code/download_files
       - ./uploads:/code/uploads
     restart: unless-stopped
+    networks:
+      - keycloak_network
+
+networks:
+  keycloak_network:
+    driver: bridge

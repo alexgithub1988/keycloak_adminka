@@ -1,10 +1,3 @@
-"""Фасад для модуля keycloak_admin — полная обратная совместимость.
-
-Все потребители (csv_handler_upload, download_handler, routes)
-продолжают работать через тот же класс KeycloakAdminAdapter.
-Вся бизнес-логика делегируется в подклассы keycloak_admin.
-"""
-
 import logging
 
 from app.infrastructure.keycloak_admin.attribute_repository import AttributeRepository
@@ -35,6 +28,7 @@ class KeycloakAdminAdapter:
             "enabled",
             "emailVerified",
         ]
+        # TODO надо подумать о динамическом определениии полей , это пока что для презентации
         self.attribute_fields = ["region_code", "municipality_id"]
 
         # Подклассы — создаются один раз в __init__

@@ -31,7 +31,7 @@ app.add_middleware(AuthMiddleware)
 # заполнив scope["session"] до того, как до него доберётся AuthMiddleware)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "super-secret-key-change-me"),
+    secret_key=os.getenv("SESSION_SECRET"),
 )
 
 templates = Jinja2Templates(directory="app/templates")
