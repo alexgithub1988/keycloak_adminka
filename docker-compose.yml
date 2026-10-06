@@ -1,6 +1,30 @@
-version: '3.8'
-
 services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.2
+    container_name: keycloak_adminka_keycloak
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: dev-file
+    command: start-dev
+    networks:
+      - keycloak_network
+
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: keycloak_adminka_init
+    entrypoint: python3 /code/init_keycloak.py
+    volumes:
+      - ./init_keycloak.py:/code/init_keycloak.py
+    depends_on:
+      - keycloak
+    networks:
+      - keycloak_network
+
   app:
     build:
       context: .
@@ -12,8 +36,10 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: "1"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      KEYCLOAK_URL: "http://keycloak:8080"
+      REDIRECT_URI: "http://localhost:8000"
+    depends_on:
+      - init
     volumes:
       - ./audit.db:/code/audit.db
       - ./upload_files:/code/upload_files

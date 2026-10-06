@@ -1,4 +1,5 @@
 import logging
+import os
 
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
@@ -11,12 +12,17 @@ logger = logging.getLogger(__name__)
 
 
 def _get_redirect_uri(request: Request) -> str:
-    """Формирует redirect_uri на основе текущего запроса."""
-    # Берём host и port из запроса, чтобы redirect_uri совпадал с тем,
-    # который зарегистрирован в Keycloak
+    """Формирует redirect_uri на основе переменной окружения или запроса."""
+    # Сначала пытаемся получить из переменной окружения (для Docker)
+    redirect_base = os.getenv("REDIRECT_URI")
+    if redirect_base:
+        return f"{redirect_base}/callback"
+
+    # Fallback: берём host и port из запроса
     scheme = "https" if request.url.scheme == "https" else "http"
     host = request.url.hostname or "localhost"
     port = request.url.port or 8000
+    return f"{scheme}://{host}:{port}/callback"
     return f"{scheme}://{host}:{port}/callback"
 
 
