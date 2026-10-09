@@ -9,6 +9,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
+from app.infrastructure.models.validation_rule import RealmValidationRule
+
 logger = logging.getLogger(__name__)
 
 
@@ -191,8 +194,6 @@ class ValidationService:
     # ================================================================
 
     def _fetch_users_with_attributes(self) -> list[dict]:
-        from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
-
         adapter = KeycloakAdminAdapter(self.realm)
         users = adapter.get_users()
         result = []
@@ -211,14 +212,10 @@ class ValidationService:
     # ================================================================
 
     def _get_rules_from_db(self) -> list[Rule]:
-        from app.infrastructure.models.validation_rule import (
-            RealmValidationRule as Model,
-        )
-
         rows = (
-            self.db.query(Model)
-            .filter(Model.realm == self.realm)
-            .order_by(Model.rule_type, Model.rule_name)
+            self.db.query(RealmValidationRule)
+            .filter(RealmValidationRule.realm == self.realm)
+            .order_by(RealmValidationRule.rule_type, RealmValidationRule.rule_name)
             .all()
         )
         if not rows:
@@ -238,10 +235,6 @@ class ValidationService:
         не затрагивая остальные правила реалма. Одному реалму может
         принадлежать сколь угодно много атрибутов и групп одновременно.
         """
-        from app.infrastructure.models.validation_rule import (
-            RealmValidationRule as Model,
-        )
-
         for r in rules:
             rule_type = r.get("rule_type", "")
             rule_name = r.get("rule_name", "").strip()
@@ -249,11 +242,11 @@ class ValidationService:
                 continue
 
             existing = (
-                self.db.query(Model)
+                self.db.query(RealmValidationRule)
                 .filter(
-                    Model.realm == self.realm,
-                    Model.rule_type == rule_type,
-                    Model.rule_name == rule_name,
+                    RealmValidationRule.realm == self.realm,
+                    RealmValidationRule.rule_type == rule_type,
+                    RealmValidationRule.rule_name == rule_name,
                 )
                 .first()
             )
@@ -262,7 +255,7 @@ class ValidationService:
                 existing.description = r.get("description", "")
             else:
                 self.db.add(
-                    Model(
+                    RealmValidationRule(
                         realm=self.realm,
                         rule_type=rule_type,
                         rule_name=rule_name,
@@ -273,12 +266,10 @@ class ValidationService:
         self.db.commit()
 
     def _delete_rules_from_db(self, rule_type: str | None) -> None:
-        from app.infrastructure.models.validation_rule import (
-            RealmValidationRule as Model,
+        q = self.db.query(RealmValidationRule).filter(
+            RealmValidationRule.realm == self.realm
         )
-
-        q = self.db.query(Model).filter(Model.realm == self.realm)
         if rule_type:
-            q = q.filter(Model.rule_type == rule_type)
+            q = q.filter(RealmValidationRule.rule_type == rule_type)
         q.delete(synchronize_session="fetch")
         self.db.commit()

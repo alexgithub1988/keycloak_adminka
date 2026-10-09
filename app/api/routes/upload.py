@@ -1,3 +1,5 @@
+import csv
+import io
 import logging
 import os
 
@@ -7,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.audit_service import AuditService
 from app.infrastructure.csv_handler_upload import upload_handler
+from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
+from app.infrastructure.keycloak_admin.validation_service import ValidationService
 from app.infrastructure.models import SessionLocal
 
 router = APIRouter()
@@ -66,16 +70,10 @@ def get_files(
     # ================================================================
     # Валидация CSV по правилам реалма (если правила есть)
     # ================================================================
-    from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
-    from app.infrastructure.keycloak_admin.validation_service import ValidationService
-
     service = ValidationService(db=db, realm=realm)
     rules = service.get_rules()
     if rules:
         # Парсим CSV для проверки
-        import csv
-        import io
-
         try:
             reader = csv.DictReader(io.StringIO(file_content.decode("utf-8")))
             rows = list(reader)

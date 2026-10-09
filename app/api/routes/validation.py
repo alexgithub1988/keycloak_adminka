@@ -2,6 +2,7 @@
 
 import csv
 import io
+import json
 import logging
 from pathlib import Path
 
@@ -91,8 +92,6 @@ def api_set_rules(
     db: Session = Depends(get_db),
 ):
     """Установить правила валидации для реалма."""
-    import json
-
     # Поддерживаем разные форматы body
     rules = None
 
@@ -109,12 +108,6 @@ def api_set_rules(
     # Если прислали JSON с rules
     elif "rules" in data and isinstance(data["rules"], list):
         rules = data["rules"]
-    # Если Form data с rules_json
-    elif "rules_json" in data:
-        try:
-            rules = json.loads(data["rules_json"])
-        except Exception:
-            return {"ok": False, "error": "Invalid JSON in rules_json"}
 
     if not rules or not isinstance(rules, list):
         return {"ok": False, "error": "No valid rules provided"}

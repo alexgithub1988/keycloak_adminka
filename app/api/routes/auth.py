@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
@@ -23,14 +24,11 @@ def _get_redirect_uri(request: Request) -> str:
     host = request.url.hostname or "localhost"
     port = request.url.port or 8000
     return f"{scheme}://{host}:{port}/callback"
-    return f"{scheme}://{host}:{port}/callback"
 
 
 @router.get("/login")
 def login(request: Request):
     """Перенаправляет на страницу авторизации Keycloak."""
-    import secrets
-
     redirect_uri = _get_redirect_uri(request)
     # Генерируем state для защиты от CSRF атак
     state = secrets.token_urlsafe(32)

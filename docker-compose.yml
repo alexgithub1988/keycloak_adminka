@@ -18,6 +18,8 @@ services:
       dockerfile: Dockerfile
     container_name: keycloak_adminka_init
     entrypoint: python3 /code/init_keycloak.py
+    env_file:
+      - .env
     volumes:
       - ./init_keycloak.py:/code/init_keycloak.py
     depends_on:

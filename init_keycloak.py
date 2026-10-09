@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import sys
 import time
 
@@ -40,7 +41,12 @@ if resp.status_code != 200:
 token = resp.json()["access_token"]
 print("✓ Got admin token")
 
-# Создаём клиент
+# Создаём/обновляем клиент
+client_secret = os.getenv(
+    "CLIENT_SECRET",
+    "xk6m0BdiI6e5R4iMiI0a1unwCLgPA4Lxr2RCGjtdXyCLEgbhUTvmKQUWLsTSNUSAUYbgCMXY3UTUpKo2IGYC4Y",
+)
+
 client_data = {
     "clientId": "my_app",
     "name": "My App",
@@ -51,7 +57,12 @@ client_data = {
     "webOrigins": ["http://localhost:8000"],
     "standardFlowEnabled": True,
     "implicitFlowEnabled": False,
-    "secret": "xk6m0BdiI6e5R4iMiI0a1unwCLgPA4Lxr2RCGjtdXyCLEgbhUTvmKQUWLsTSNUSAUYbgCMXY3UTUpKo2IGYC4Y",
+    # Post-logout redirect URI задаётся через атрибут клиента, а не отдельное
+    # поле ClientRepresentation: в Keycloak 24 поле postLogoutRedirectUris
+    # отсутствует в REST API и вызывает ошибку "Unrecognized field".
+    "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8000/",
+    },
 }
 
 client_url = "http://keycloak:8080/admin/realms/master/clients"
@@ -59,11 +70,26 @@ headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json
 
 # Проверяем есть ли уже такой клиент
 list_resp = requests.get(client_url + "?clientId=my_app", headers=headers)
-if list_resp.status_code == 200 and list_resp.json():
-    print("✓ Client my_app already exists")
+existing = list_resp.json() if list_resp.status_code == 200 else []
+
+if existing:
+    # Клиент уже есть — обновляем его настройки (redirectUris, webOrigins,
+    # attributes с post.logout.redirect.uris и т.д.), чтобы они всегда совпадали
+    # с init_keycloak.py. Секрет при обновлении НЕ меняется: Keycloak хранит его
+    # хэшированным и не принимает новое значение через PUT.
+    client_id = existing[0]["id"]
+    update_resp = requests.put(
+        client_url + f"/{client_id}", json=client_data, headers=headers
+    )
+    if update_resp.status_code in [204, 200]:
+        print("✓ Client my_app updated")
+    else:
+        print(f"Не удалось обновить клиент: {update_resp.text}")
+        sys.exit(1)
 else:
-    # Создаём новый
-    create_resp = requests.post(client_url, json=client_data, headers=headers)
+    # Создаём новый клиент (секрет задаётся только при создании)
+    create_payload = {**client_data, "secret": client_secret}
+    create_resp = requests.post(client_url, json=create_payload, headers=headers)
     if create_resp.status_code in [201, 200]:
         print("✓ Client my_app created")
     else:

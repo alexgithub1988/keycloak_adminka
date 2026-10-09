@@ -3,8 +3,11 @@ import os
 import urllib.parse
 
 import jwt
+from dotenv import load_dotenv
 from jwt import PyJWKClient
 from keycloak import KeycloakOpenID
+
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 
@@ -112,15 +115,14 @@ class AuthService:
 
     def get_logout_url(self, redirect_uri: str = "") -> str:
         """Генерирует URL для logout из Keycloak (для браузера)."""
-        params = {}
+        params = {"client_id": self.client_id}
         if redirect_uri:
-            params["redirect_uri"] = redirect_uri
-        query_string = urllib.parse.urlencode(params) if params else ""
+            params["post_logout_redirect_uri"] = redirect_uri
+        query_string = urllib.parse.urlencode(params)
         logout_url = (
             f"{self.server_url}realms/{self.realm}/protocol/openid-connect/logout"
+            f"?{query_string}"
         )
-        if query_string:
-            logout_url += f"?{query_string}"
         # Заменяем для браузера
         logout_url = self._get_browser_url(logout_url)
         return logout_url
