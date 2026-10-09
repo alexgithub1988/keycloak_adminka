@@ -31,13 +31,11 @@ def download_file(request: Request, realm: str, db: Session = Depends(get_db)):
     file_path = os.path.join(DOWNLOAD_DIR, filename)
     users_list = normalize_download_handler(realm)
 
-    # Динамически собираем все поля из всех пользователей
+    # Базовые поля + группы; атрибуты и остальные ключи добавляем динамически
     all_fieldnames = [
         "username",
         "lastName",
         "firstName",
-        "region_code",
-        "municipality_id",
         "groups",
     ]
     for user in users_list:

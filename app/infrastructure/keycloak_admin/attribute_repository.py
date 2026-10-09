@@ -18,16 +18,35 @@ class AttributeRepository:
     def admin(self):
         return self._conn.admin
 
+    @staticmethod
+    def _normalize_attributes(attributes: dict) -> dict:
+        """Приводит значения атрибутов к формату Keycloak: {name: [str, ...]}."""
+        result: dict = {}
+        for key, value in (attributes or {}).items():
+            if value is None or value == "":
+                continue
+            if isinstance(value, list):
+                values = [str(v) for v in value if v not in (None, "")]
+            else:
+                values = [str(value)]
+            if values:
+                result[key] = values
+        return result
+
     def set_user_attributes(self, user_id: str, attributes: dict) -> bool:
-        """Устанавливает атрибуты пользователя (region_code, municipality_id и т.д.)."""
+        """Устанавливает пользовательские атрибуты из правил реалма."""
         self.check_token()
         try:
-            formatted_attrs = {k: [v] for k, v in attributes.items() if v}
-            if formatted_attrs:
-                self.admin.set_user_attributes(user_id, formatted_attrs)
-                logger.info(
-                    f"Атрибуты пользователя {user_id} установлены: {list(formatted_attrs.keys())}"
-                )
+            formatted_attrs = self._normalize_attributes(attributes)
+            if not formatted_attrs:
+                return True
+
+            user_repr = self.admin.get_user(user_id)
+            user_repr["attributes"] = formatted_attrs
+            self.admin.update_user(user_id, user_repr)
+            logger.info(
+                f"Атрибуты пользователя {user_id} установлены: {list(formatted_attrs.keys())}"
+            )
             return True
         except Exception as e:
             logger.error(f"Ошибка установки атрибутов пользователя {user_id}: {e}")
@@ -37,21 +56,38 @@ class AttributeRepository:
         """Обновляет атрибуты пользователя (добавляет/переопределяет)."""
         self.check_token()
         try:
-            current_attrs = self.admin.get_user_attributes(user_id)
-            if current_attrs is None:
-                current_attrs = {}
+            user_repr = self.admin.get_user(user_id)
+            current_attrs = self._normalize_attributes(
+                user_repr.get("attributes") or {}
+            )
+            incoming_attrs = self._normalize_attributes(attributes)
+            current_attrs.update(incoming_attrs)
 
-            for k, v in attributes.items():
-                if v:
-                    current_attrs[k] = str(v)
-
-            formatted_attrs = {k: [v] for k, v in current_attrs.items()}
-            if formatted_attrs:
-                self.admin.set_user_attributes(user_id, formatted_attrs)
-                logger.info(
-                    f"Атрибуты пользователя {user_id} обновлены: {list(formatted_attrs.keys())}"
-                )
+            user_repr["attributes"] = current_attrs
+            self.admin.update_user(user_id, user_repr)
+            logger.info(
+                f"Атрибуты пользователя {user_id} обновлены: {list(current_attrs.keys())}"
+            )
             return True
         except Exception as e:
             logger.error(f"Ошибка обновления атрибутов пользователя {user_id}: {e}")
+            return False
+
+    def custom_attributes_allowed(self) -> bool:
+        """Проверяет, сохранит ли Keycloak незадекларированные атрибуты.
+
+        Только чтение: смотрим unmanagedAttributePolicy в профиле реалма
+        (user profile). Незадекларированные атрибуты сохраняются только при
+        unmanagedAttributePolicy=ENABLED; в остальных случаях Keycloak их
+        молча отбрасывает — сохранять нельзя.
+        """
+        self.check_token()
+        try:
+            profile = self.admin.get_realm_users_profile()
+            return profile.get("unmanagedAttributePolicy") == "ENABLED"
+        except Exception as e:
+            logger.error(
+                "Не удалось прочитать профиль пользователей реалма "
+                f"{self._conn.realm}: {e}"
+            )
             return False

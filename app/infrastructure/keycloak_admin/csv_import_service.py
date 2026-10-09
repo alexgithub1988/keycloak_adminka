@@ -21,6 +21,9 @@ class CsvImportService:
         self._group_repo = group_repo
         self._basic_fields = set(basic_fields)
         self._attribute_fields = set(attribute_fields)
+        # Если Keycloak не разрешает хранить кастомные атрибуты — пропускаем их
+        # и предупреждаем администратора (см. create_from_list).
+        self._skip_attributes = False
 
     # ---- внутренние хелперы ------------------------------------------------
 
@@ -39,6 +42,24 @@ class CsvImportService:
                 attributes[key] = value
         return basic, attributes
 
+    def _resolve_group_refs(
+        self, groups_value: str, flat_groups: list[dict] | None
+    ) -> tuple[list[dict], list[str]]:
+        """Разделяет ссылки на группы на найденные и отсутствующие в Keycloak."""
+        resolved: list[dict] = []
+        missing: list[str] = []
+        if not groups_value:
+            return resolved, missing
+
+        refs = [g.strip() for g in str(groups_value).split(";") if g.strip()]
+        for ref in refs:
+            group = self._group_repo.resolve_group(ref, flat_groups or [])
+            if group is None:
+                missing.append(ref)
+            else:
+                resolved.append(group)
+        return resolved, missing
+
     # ---- create_or_update_user --------------------------------------------
 
     def create_or_update_user(
@@ -48,8 +69,8 @@ class CsvImportService:
         Создает или обновляет пользователя.
 
         Если в row есть поле 'groups' (разделитель ';') — добавляет пользователя
-        в существующие группы Keycloak (не найденные группы пропускаются
-        с предупреждением).
+        в существующие группы Keycloak. Если хотя бы одна группа из row
+        отсутствует в Keycloak, строка блокируется (возвращается 'error').
 
         Возвращает:
             {
@@ -71,6 +92,16 @@ class CsvImportService:
             return {
                 "action": "error",
                 "details": "Отсутствует email/username",
+                "group_warnings": [],
+            }
+
+        _resolved_groups, missing_groups = self._resolve_group_refs(
+            groups_value, flat_groups
+        )
+        if missing_groups:
+            return {
+                "action": "error",
+                "details": f"Группы не существуют в Keycloak: {', '.join(missing_groups)}",
                 "group_warnings": [],
             }
 
@@ -133,6 +164,7 @@ class CsvImportService:
                 "skipped": 0,
                 "errors": [],
                 "group_warnings": 0,
+                "attribute_warnings": [],
             }
 
         first_row = list_of_dicts[0]
@@ -143,6 +175,23 @@ class CsvImportService:
         skipped = 0
         errors = []
         group_warnings = 0
+        attribute_warnings = []
+
+        # Keycloak сохраняет незадекларированные атрибуты только при
+        # unmanagedAttributePolicy=ENABLED. При любой другой политике атрибуты
+        # не сохраняем и предупреждаем администратора (реалм не меняем).
+        self._skip_attributes = False
+        has_attribute_columns = bool(self._attribute_fields & keys)
+        if has_attribute_columns and not self._attr_repo.custom_attributes_allowed():
+            self._skip_attributes = True
+            warning = (
+                "Атрибуты не сохранены: в реалме Keycloak выключено хранение "
+                "незадекларированных атрибутов (User profile -> Unmanaged "
+                "attributes != ENABLED). Включите 'Unmanaged attributes' в "
+                "настройках профиля пользователей реалма."
+            )
+            attribute_warnings.append(warning)
+            logger.warning(warning)
 
         has_groups_column = "groups" in keys
         flat_groups = []
@@ -152,7 +201,7 @@ class CsvImportService:
                 flat_groups = self._group_repo.flatten_groups(groups)
             except Exception as e:
                 logger.error(
-                    f"Не удалось получить группы для реалма {self._conn.realm}: {e}"
+                    f"Не удалось получить группы для реалма {self._group_repo._conn.realm}: {e}"
                 )
                 flat_groups = []
 
@@ -193,6 +242,7 @@ class CsvImportService:
                 "skipped": 0,
                 "errors": ["Неизвестный формат CSV"],
                 "group_warnings": 0,
+                "attribute_warnings": [],
             }
 
         logger.info(
@@ -206,6 +256,7 @@ class CsvImportService:
             "skipped": skipped,
             "errors": errors,
             "group_warnings": group_warnings,
+            "attribute_warnings": attribute_warnings,
         }
 
     # ---- get_users_with_groups --------------------------------------------
@@ -280,7 +331,7 @@ class CsvImportService:
 
             user_id = result["id"]
 
-            if attributes:
+            if attributes and not self._skip_attributes:
                 self._attr_repo.set_user_attributes(
                     user_id=user_id, attributes=attributes
                 )
@@ -332,7 +383,7 @@ class CsvImportService:
                 enabled=enabled,
             )
 
-            if attributes:
+            if attributes and not self._skip_attributes:
                 self._attr_repo.update_user_attributes(
                     user_id=user_id, attributes=attributes
                 )

@@ -1,0 +1,11 @@
+email,username,firstName,lastName,enabled,emailVerified,region_code,municipality_id,groups
+ivan.petrov@example.com,ivan.petrov,Иван,Петров,true,true,77,77001,employees;managers
+maria.sidorova@example.com,maria.sidorova,Мария,Сидорова,true,true,77,77002,employees
+alexey.smirnov@example.com,alexey.smirnov,Алексей,Смирнов,true,false,78,78001,employees;it_department
+olga.kuznetsova@example.com,olga.kuznetsova,Ольга,Кузнецова,true,true,,77003,employees
+dmitry.volkov@example.com,dmitry.volkov,Дмитрий,Волков,false,false,50,50001,employees
+elena.morozova@example.com,elena.morozova,Елена,Морозова,true,true,50,,hr
+sergey.novikov@example.com,sergey.novikov,Сергей,Новиков,true,true,78,78002,
+anna.popova@example.com,anna.popova,Анна,Попова,true,true,77,77004,employees;hr;accounting
+pavel.lebedev@example.com,pavel.lebedev,Павел,Лебедев,true,true,76,76001,employees;managers
+natalia.orlova@example.com,natalia.orlova,Наталья,Орлова,true,true,76,76002,employees

@@ -41,14 +41,32 @@ class MessageHandler:
                 created = request.query_params.get("created", "0")
                 updated = request.query_params.get("updated", "0")
                 skipped = request.query_params.get("skipped", "0")
+                detail = request.query_params.get("detail", "")
                 message = {
                     "type": "warning",
                     "icon": "exclamation-triangle-fill",
-                    "text": "Часть пользователей не создана/обновлена (возможно, ошибки). Проверьте логи.",
+                    "text": "Часть пользователей не создана/обновлена.",
                 }
                 stats = (
                     f"Создано: {created}, Обновлено: {updated}, Пропущено: {skipped}"
                 )
+                if detail:
+                    stats = f"{stats}. Причины: {detail}"
+            elif request.query_params.get("warning") == "attributes_not_saved":
+                created = request.query_params.get("created", "0")
+                updated = request.query_params.get("updated", "0")
+                skipped = request.query_params.get("skipped", "0")
+                detail = request.query_params.get("detail", "")
+                message = {
+                    "type": "warning",
+                    "icon": "exclamation-triangle-fill",
+                    "text": "Пользователи загружены, но атрибуты не сохранены.",
+                }
+                stats = (
+                    f"Создано: {created}, Обновлено: {updated}, Пропущено: {skipped}"
+                )
+                if detail:
+                    stats = f"{stats}. {detail}"
 
         elif "error" in request.query_params:
             if request.query_params.get("error") == "csv_only":
@@ -67,11 +85,13 @@ class MessageHandler:
                 }
                 stats = f"Создано: {created}, Пропущено: {skipped}"
             elif request.query_params.get("error") == "all_failed":
+                detail = request.query_params.get("detail", "")
                 message = {
                     "type": "danger",
                     "icon": "exclamation-triangle-fill",
-                    "text": "Не удалось создать ни одного пользователя. Проверьте формат CSV.",
+                    "text": "Не удалось создать ни одного пользователя.",
                 }
+                stats = detail if detail else "Проверьте формат CSV."
             elif request.query_params.get("error") == "validation_failed":
                 invalid_rows = request.query_params.get("invalid_rows", "0")
                 detail = request.query_params.get("detail", "")

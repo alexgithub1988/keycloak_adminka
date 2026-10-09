@@ -76,6 +76,9 @@
                 {% if message %}
                 <div class="alert alert-{{ message.type }} alert-dismissible fade show" role="alert">
                     {{ message.text }}
+                    {% if stats %}
+                    <div class="mt-2"><small>{{ stats }}</small></div>
+                    {% endif %}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
                 {% endif %}

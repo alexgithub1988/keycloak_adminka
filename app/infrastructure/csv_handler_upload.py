@@ -10,9 +10,11 @@ load_dotenv(override=True)
 logging.basicConfig(level="INFO")
 
 
-def upload_handler(filepath: str, realm: str) -> dict:
+def upload_handler(
+    filepath: str, realm: str, attribute_fields: list[str] | None = None
+) -> dict:
     """Загружаем файл. Возвращает: {'created': int, 'updated': int, 'skipped': int, 'errors': list[str]}"""
-    upload = KeycloakAdminAdapter(realm)
+    upload = KeycloakAdminAdapter(realm, attribute_fields=attribute_fields)
     csv_adapter = CsvAdapter()
 
     if not os.path.exists(filepath):

@@ -2,6 +2,7 @@ import csv
 import io
 import logging
 import os
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -27,6 +28,15 @@ def get_db():
 
 UPLOAD_DIR = "upload_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def _format_import_errors(errors: list[str], limit: int = 5) -> str:
+    """Формирует строку с первыми ошибками импорта для показа в UI."""
+    if not errors:
+        return ""
+    shown = errors[:limit]
+    suffix = f" (и ещё {len(errors) - limit})" if len(errors) > limit else ""
+    return "; ".join(shown) + suffix
 
 
 @router.post("/files/upload")
@@ -101,7 +111,17 @@ def get_files(
             logger.warning(f"Validation failed: {e}")
             # Если валидация упала — всё равно продолжаем загрузку
 
-    result = upload_handler(filepath=file_location, realm=realm)
+    # Атрибуты пользователя берём из правил реалма (rule_type="attribute").
+    attr_fields = [r.rule_name for r in rules if r.rule_type == "attribute"]
+
+    result = upload_handler(
+        filepath=file_location,
+        realm=realm,
+        attribute_fields=attr_fields,
+    )
+
+    attribute_warnings = result.get("attribute_warnings", [])
+    attr_detail = "; ".join(attribute_warnings) if attribute_warnings else ""
 
     # Определяем результат операции для аудита
     total_processed = result["created"] + result["updated"]
@@ -132,15 +152,28 @@ def get_files(
 
     if total_processed == 0:
         # Ни одного пользователя не создано/обновлено
+        detail = _format_import_errors(result.get("errors", []))
+        if attr_detail:
+            detail = f"{detail} | {attr_detail}" if detail else attr_detail
         return RedirectResponse(
-            url=f"/?error=all_failed&created=0&updated=0&skipped={result['skipped']}&realm={realm}",
+            url=f"/?error=all_failed&created=0&updated=0&skipped={result['skipped']}&detail={quote(detail)}&realm={realm}",
             status_code=303,
         )
 
     if result["skipped"] > 0 and total_processed > 0:
         # Частичный успех — показываем warning со статистикой
+        detail = _format_import_errors(result.get("errors", []))
+        if attr_detail:
+            detail = f"{detail} | {attr_detail}" if detail else attr_detail
         return RedirectResponse(
-            url=f"/?warning=partial_success&created={result['created']}&updated={result['updated']}&skipped={result['skipped']}&realm={realm}",
+            url=f"/?warning=partial_success&created={result['created']}&updated={result['updated']}&skipped={result['skipped']}&detail={quote(detail)}&realm={realm}",
+            status_code=303,
+        )
+
+    if attribute_warnings:
+        # Пользователи загружены, но атрибуты не сохранились — предупреждаем
+        return RedirectResponse(
+            url=f"/?warning=attributes_not_saved&created={result['created']}&updated={result['updated']}&skipped={result['skipped']}&detail={quote(attr_detail)}&realm={realm}",
             status_code=303,
         )
 

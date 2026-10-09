@@ -1,0 +1,6 @@
+email,municipality_id,region_code,worker,groups
+ivanov@example.com,101,77,true,Basic;hr
+petrov@example.com,102,78,false,Basic
+sidorova@example.com,103,77,true,Basic;manager
+smirnov@example.com,104,78,true,Basic;it_specialist
+kuznetsov@example.com,105,79,да,Basic

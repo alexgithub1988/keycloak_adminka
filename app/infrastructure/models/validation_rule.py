@@ -22,6 +22,9 @@ class RealmValidationRule(Base):
     rule_name = Column(String(255), nullable=False)
     is_required = Column(Boolean, default=False)
     description = Column(Text, nullable=True)
+    field_type = Column(
+        String(20), nullable=True
+    )  # "string" | "integer" | "boolean" — только для атрибутов
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (

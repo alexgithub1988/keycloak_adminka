@@ -34,16 +34,24 @@
         </div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Тип</label>
-                    <select id="addRuleType" class="form-select">
+                    <select id="addRuleType" class="form-select" onchange="toggleFieldType()">
                         <option value="attribute">Атрибут</option>
                         <option value="group">Группа</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Имя (ключ)</label>
-                    <input id="addRuleName" type="text" class="form-control" placeholder="напр. department или manager">
+                    <input id="addRuleName" type="text" class="form-control">
+                </div>
+                <div class="col-md-2" id="fieldTypeField">
+                    <label class="form-label">Тип поля</label>
+                    <select id="addFieldType" class="form-select">
+                        <option value="string">string</option>
+                        <option value="integer">integer</option>
+                        <option value="boolean">boolean</option>
+                    </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Обязательный</label>
@@ -97,11 +105,13 @@
                             <th>Тип</th>
                             <th>Имя</th>
                             <th>Обязательный</th>
+                            <th>Тип поля</th>
                             <th>Описание</th>
+                            <th>Действия</th>
                         </tr>
                     </thead>
                     <tbody id="rulesTableBody">
-                        <tr><td colspan="4" class="text-center text-muted">Загрузка...</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted">Загрузка...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -166,8 +176,62 @@
 
 </div>
 
+<!-- Уведомления -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <div id="appToast" class="toast align-items-center text-bg-secondary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="appToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalTitle">Подтверждение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">Вы уверены?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmModalBtn">Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const DEFAULT_REALM = "{{ realm }}";
+
+function notify(message, type) {
+    const el = document.getElementById('appToast');
+    const body = document.getElementById('appToastBody');
+    if (!el || !body) return;
+    body.textContent = message;
+    el.className = 'toast align-items-center border-0 ' +
+        (type === 'success' ? 'text-bg-success' : type === 'warning' ? 'text-bg-warning' : 'text-bg-danger');
+    bootstrap.Toast.getOrCreateInstance(el, { delay: 4000 }).show();
+}
+
+function confirmAction(message, btnLabel, onConfirm) {
+    const modalEl = document.getElementById('confirmModal');
+    if (!modalEl) {
+        if (window.confirm(message)) onConfirm();
+        return;
+    }
+    document.getElementById('confirmModalBody').textContent = message;
+    const btn = document.getElementById('confirmModalBtn');
+    btn.textContent = btnLabel || 'Удалить';
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    btn.onclick = function() {
+        modal.hide();
+        onConfirm();
+    };
+    modal.show();
+}
 
 function getRealm() {
     // Приоритет: URL params → select → DEFAULT_REALM
@@ -218,6 +282,7 @@ function showViolations(containerId, violations) {
         if (v.missing_required?.length) errors.push('Отсутствуют: ' + v.missing_required.join(', '));
         if (v.unknown_fields?.length) errors.push('Неизвестные поля: ' + v.unknown_fields.join(', '));
         if (v.missing_groups?.length) errors.push('Нет групп: ' + v.missing_groups.join(', '));
+        if (v.invalid_types?.length) errors.push('Неверный тип: ' + v.invalid_types.join(', '));
         html += '<tr><td>' + (v.row || '-') + '</td><td>' + (v.email || '-') + '</td><td class="text-danger">' + errors.join('; ') + '</td><td><small class="text-muted">' + JSON.stringify(v) + '</small></td></tr>';
     });
     html += '</tbody></table></div></div></div>';
@@ -243,18 +308,22 @@ function loadRules() {
             const tbody = document.getElementById('rulesTableBody');
             document.getElementById('rulesCount').textContent = data.rules ? data.rules.length : 0;
             if (!data.rules || !data.rules.length) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Нет правил. Добавьте первое!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Нет правил. Добавьте первое!</td></tr>';
                 return;
             }
             tbody.innerHTML = data.rules.map(function(r) {
                 var badgeClass = r.rule_type === 'attribute' ? 'info' : 'primary';
                 var requiredBadge = r.is_required ? '<span class="badge bg-danger">Да</span>' : '<span class="badge bg-secondary">Нет</span>';
+                var fieldType = (r.rule_type === 'attribute' && r.field_type) ? r.field_type : '-';
                 var description = r.description || '-';
+                var deleteBtn = '<button type="button" class="btn btn-sm btn-outline-danger" data-rule-type="' + r.rule_type + '" data-rule-name="' + r.rule_name + '" onclick="deleteRule(this)">Удалить</button>';
                 return '<tr>' +
                     '<td><span class="badge bg-' + badgeClass + '">' + r.rule_type + '</span></td>' +
                     '<td>' + r.rule_name + '</td>' +
                     '<td>' + requiredBadge + '</td>' +
+                    '<td>' + fieldType + '</td>' +
                     '<td>' + description + '</td>' +
+                    '<td>' + deleteBtn + '</td>' +
                     '</tr>';
             }).join('');
         })
@@ -262,7 +331,7 @@ function loadRules() {
             console.error('Error loading rules:', e);
             const tbody = document.getElementById('rulesTableBody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Ошибка загрузки правил: ' + e.message + '</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-danger">Ошибка загрузки правил: ' + e.message + '</td></tr>';
             }
         });
 }
@@ -271,6 +340,12 @@ function loadRules() {
 // Добавление правила
 // ================================================================
 
+function toggleFieldType() {
+    const ruleType = document.getElementById('addRuleType').value;
+    const field = document.getElementById('fieldTypeField');
+    if (field) field.style.display = ruleType === 'attribute' ? '' : 'none';
+}
+
 function addRule() {
     const ruleType = document.getElementById('addRuleType').value;
     const ruleName = document.getElementById('addRuleName').value.trim();
@@ -278,15 +353,17 @@ function addRule() {
     const description = document.getElementById('addDescription').value.trim();
 
     if (!ruleName) {
-        alert('Введите имя правила');
+        notify('Введите имя правила', 'warning');
         return;
     }
 
+    const fieldType = document.getElementById('addFieldType').value;
     const rules = [{
         rule_type: ruleType,
         rule_name: ruleName,
         is_required: isRequired,
         description: description,
+        field_type: ruleType === 'attribute' ? fieldType : '',
     }];
 
     console.log('Sending POST to /api/validation/rules with:', rules);
@@ -315,9 +392,9 @@ function addRule() {
             document.getElementById('addDescription').value = '';
             document.getElementById('addIsRequired').value = 'false';
             loadRules(); // Refresh the table
-            alert('Правило успешно добавлено!');
+            notify('Правило успешно добавлено', 'success');
         } else {
-            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            notify('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'danger');
         }
     })
     .catch(e => {
@@ -328,37 +405,70 @@ function addRule() {
             .then(text => {
                 console.log('Error response content:', text.substring(0, 200) + '...');
             });
-        alert('Ошибка при добавлении правила: ' + e.message);
+        notify('Ошибка при добавлении правила: ' + e.message, 'danger');
     });
 }
 
 function deleteRules() {
     console.log('Deleting rules for realm:', getRealm());
     const ruleType = document.getElementById('deleteRuleType').value || null;
-    console.log('Rule type to delete:', ruleType);
+    const what = ruleType === 'attribute' ? 'все атрибуты' : (ruleType === 'group' ? 'все группы' : 'все правила');
 
-    fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()) + (ruleType ? '&rule_type=' + encodeURIComponent(ruleType) : ''), {
-        method: 'DELETE',
-    })
-    .then(response => {
-        console.log('Delete response status:', response.status);
-        if (!response.ok) {
-            throw new Error('HTTP error! Status: ' + response.status);
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('Delete API response:', data);
-        if (data.ok) {
-            loadRules(); // Refresh the table
-            alert('Правила успешно удалены!');
-        } else {
-            alert('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка'));
-        }
-    })
-    .catch(e => {
-        console.error('Error deleting rules:', e);
-        alert('Ошибка при удалении правил: ' + e.message);
+    confirmAction('Удалить ' + what + '?', 'Удалить', function() {
+        fetch('/api/validation/rules?realm=' + encodeURIComponent(getRealm()) + (ruleType ? '&rule_type=' + encodeURIComponent(ruleType) : ''), {
+            method: 'DELETE',
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('HTTP error! Status: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.ok) {
+                loadRules();
+                notify('Правила успешно удалены', 'success');
+            } else {
+                notify('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка'), 'danger');
+            }
+        })
+        .catch(e => {
+            console.error('Error deleting rules:', e);
+            notify('Ошибка при удалении правил: ' + e.message, 'danger');
+        });
+    });
+}
+
+function deleteRule(btn) {
+    const ruleType = btn.getAttribute('data-rule-type');
+    const ruleName = btn.getAttribute('data-rule-name');
+    const typeLabel = ruleType === 'attribute' ? 'атрибут' : 'группа';
+
+    confirmAction('Удалить ' + typeLabel + ' «' + ruleName + '»?', 'Удалить', function() {
+        const params = new URLSearchParams({
+            realm: getRealm(),
+            rule_type: ruleType,
+            rule_name: ruleName,
+        });
+        fetch('/api/validation/rules?' + params.toString(), { method: 'DELETE' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP error! Status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.ok) {
+                    loadRules();
+                    notify('Правило «' + ruleName + '» удалено', 'success');
+                } else {
+                    notify('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'danger');
+                }
+            })
+            .catch(e => {
+                console.error('Error deleting rule:', e);
+                notify('Ошибка при удалении правила: ' + e.message, 'danger');
+            });
     });
 }
 
@@ -369,7 +479,7 @@ function deleteRules() {
 document.getElementById('validateCsvForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     const csvText = document.getElementById('csvText').value;
-    if (!csvText.trim()) { alert('Вставьте CSV'); return; }
+    if (!csvText.trim()) { notify('Вставьте CSV', 'warning'); return; }
 
     const btn = this.querySelector('button');
     btn.disabled = true; btn.textContent = 'Проверка...';
@@ -381,12 +491,12 @@ document.getElementById('validateCsvForm')?.addEventListener('submit', function(
     .then(r => r.json())
     .then(data => {
         btn.disabled = false; btn.textContent = 'Проверить';
-        if (!data.ok) { alert('Ошибка: ' + data.error); return; }
+        if (!data.ok) { notify('Ошибка: ' + data.error, 'danger'); return; }
         document.getElementById('csvResult').style.display = 'block';
         showSummary('csvSummary', data.report);
         showViolations('csvViolations', data.report.violations);
     })
-    .catch(e => { btn.disabled = false; btn.textContent = 'Проверить'; alert('Ошибка: ' + e); });
+    .catch(e => { btn.disabled = false; btn.textContent = 'Проверить'; notify('Ошибка: ' + e, 'danger'); });
 });
 
 // ================================================================
@@ -399,12 +509,12 @@ document.getElementById('btnValidateExisting')?.addEventListener('click', functi
         .then(r => r.json())
         .then(data => {
             this.disabled = false; this.textContent = 'Проверить';
-            if (!data.ok) { alert('Ошибка: ' + data.error); return; }
+            if (!data.ok) { notify('Ошибка: ' + data.error, 'danger'); return; }
             document.getElementById('existingResult').style.display = 'block';
             showSummary('existingSummary', data.report);
             showViolations('existingViolations', data.report.violations);
         })
-        .catch(e => { this.disabled = false; this.textContent = 'Проверить'; alert('Ошибка: ' + e); });
+        .catch(e => { this.disabled = false; this.textContent = 'Проверить'; notify('Ошибка: ' + e, 'danger'); });
 });
 
 // ================================================================
@@ -412,6 +522,7 @@ document.getElementById('btnValidateExisting')?.addEventListener('click', functi
 // ================================================================
 
 document.addEventListener('DOMContentLoaded', function() {
+    toggleFieldType();
     // Ждём пока layout.html загрузит реалмы в select
     if (window.realmsReady) {
         window.realmsReady.then(() => {

@@ -23,6 +23,7 @@ class Rule:
     rule_name: str
     is_required: bool
     description: str = ""
+    field_type: str = ""
 
 
 @dataclass
@@ -35,6 +36,7 @@ class RowViolation:
     empty_optional: list[str] = field(default_factory=list)
     unknown_fields: list[str] = field(default_factory=list)
     missing_groups: list[str] = field(default_factory=list)
+    invalid_types: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -55,6 +57,35 @@ class ValidationService:
         self.db = db
         self.realm = realm
 
+    @staticmethod
+    def _check_type(value: str, field_type: str) -> bool:
+        """Проверяет, что строковое значение соответствует ожидаемому типу поля."""
+        t = (field_type or "string").strip().lower()
+        if t == "string":
+            return True
+        if t == "integer":
+            try:
+                int(value)
+                return True
+            except ValueError:
+                return False
+        if t == "boolean":
+            return value.lower() in {
+                "true",
+                "false",
+                "1",
+                "0",
+                "yes",
+                "no",
+                "y",
+                "n",
+                "t",
+                "f",
+                "да",
+                "нет",
+            }
+        return True  # неизвестный тип — не блокируем
+
     # ================================================================
     # CRUD правил (только БД, через SQLAlchemy)
     # ================================================================
@@ -68,9 +99,13 @@ class ValidationService:
         self._save_rules_to_db(rules)
         return [r.get("rule_name", "") for r in rules if r.get("rule_name")]
 
-    def delete_rules(self, rule_type: str | None = None) -> None:
-        """Удаляет правила из БД."""
-        self._delete_rules_from_db(rule_type)
+    def delete_rules(
+        self,
+        rule_type: str | None = None,
+        rule_name: str | None = None,
+    ) -> None:
+        """Удаляет правила из БД: по имени, по типу или всё сразу."""
+        self._delete_rules_from_db(rule_type, rule_name)
 
     # ================================================================
     # Валидация CSV
@@ -87,6 +122,9 @@ class ValidationService:
         group_rules = {r.rule_name: r for r in rules if r.rule_type == "group"}
         required_attrs = {n for n, r in attr_rules.items() if r.is_required}
         required_groups = {n for n, r in group_rules.items() if r.is_required}
+        attr_field_types = {
+            n: r.field_type for n, r in attr_rules.items() if r.field_type
+        }
 
         report = ValidationReport(total_rows=len(csv_data))
         known_fields = set(attr_rules.keys()) | {
@@ -113,6 +151,11 @@ class ValidationService:
                 if key not in known_fields and str(row[key] or "").strip():
                     violation.unknown_fields.append(key)
 
+            for attr_name, ftype in attr_field_types.items():
+                raw = str(row.get(attr_name, "") or "").strip()
+                if raw and not self._check_type(raw, ftype):
+                    violation.invalid_types.append(f"{attr_name} (ожидается {ftype})")
+
             if required_groups:
                 groups_val = str(row.get("groups", "") or "").strip()
                 for grp in required_groups:
@@ -123,6 +166,7 @@ class ValidationService:
                 violation.missing_required
                 or violation.unknown_fields
                 or violation.missing_groups
+                or violation.invalid_types
             ):
                 report.invalid_rows += 1
                 report.violations.append(violation)
@@ -155,6 +199,9 @@ class ValidationService:
         group_rules = {r.rule_name: r for r in rules if r.rule_type == "group"}
         required_attrs = {n for n, r in attr_rules.items() if r.is_required}
         required_groups = {n for n, r in group_rules.items() if r.is_required}
+        attr_field_types = {
+            n: r.field_type for n, r in attr_rules.items() if r.field_type
+        }
 
         users = self._fetch_users_with_attributes()
         if not users:
@@ -169,12 +216,21 @@ class ValidationService:
                 if not str(user.get(attr_name, "") or "").strip():
                     violation.missing_required.append(attr_name)
 
+            for attr_name, ftype in attr_field_types.items():
+                raw = str(user.get(attr_name, "") or "").strip()
+                if raw and not self._check_type(raw, ftype):
+                    violation.invalid_types.append(f"{attr_name} (ожидается {ftype})")
+
             user_groups = str(user.get("groups", "") or "")
             for grp in required_groups:
                 if not user_groups or grp not in user_groups:
                     violation.missing_groups.append(grp)
 
-            if violation.missing_required or violation.missing_groups:
+            if (
+                violation.missing_required
+                or violation.missing_groups
+                or violation.invalid_types
+            ):
                 report.invalid_rows += 1
                 report.violations.append(violation)
             else:
@@ -226,6 +282,7 @@ class ValidationService:
                 rule_name=r.rule_name,
                 is_required=r.is_required,
                 description=r.description or "",
+                field_type=r.field_type or "",
             )
             for r in rows
         ]
@@ -253,6 +310,7 @@ class ValidationService:
             if existing:
                 existing.is_required = bool(r.get("is_required", False))
                 existing.description = r.get("description", "")
+                existing.field_type = r.get("field_type", "") or ""
             else:
                 self.db.add(
                     RealmValidationRule(
@@ -261,14 +319,21 @@ class ValidationService:
                         rule_name=rule_name,
                         is_required=bool(r.get("is_required", False)),
                         description=r.get("description", ""),
+                        field_type=r.get("field_type", "") or "",
                     )
                 )
         self.db.commit()
 
-    def _delete_rules_from_db(self, rule_type: str | None) -> None:
+    def _delete_rules_from_db(
+        self,
+        rule_type: str | None,
+        rule_name: str | None,
+    ) -> None:
         q = self.db.query(RealmValidationRule).filter(
             RealmValidationRule.realm == self.realm
         )
+        if rule_name:
+            q = q.filter(RealmValidationRule.rule_name == rule_name)
         if rule_type:
             q = q.filter(RealmValidationRule.rule_type == rule_type)
         q.delete(synchronize_session="fetch")

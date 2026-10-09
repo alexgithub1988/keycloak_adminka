@@ -9,6 +9,8 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB: dev-file
     command: start-dev
+    volumes:
+      - keycloak_data:/opt/keycloak/data
     networks:
       - keycloak_network
 
@@ -54,3 +56,6 @@ services:
 networks:
   keycloak_network:
     driver: bridge
+
+volumes:
+  keycloak_data:

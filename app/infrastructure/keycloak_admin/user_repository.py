@@ -38,7 +38,7 @@ class UserRepository:
             }
             new_user = self.admin.create_user(payload)
             logger.info(f"Пользователь с почтой {email} создан")
-            return new_user
+            return {"id": new_user}
         except Exception as e:
             logger.error(f"Ошибка создания пользователя {email}: {e}")
             return None

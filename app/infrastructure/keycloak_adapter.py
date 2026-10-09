@@ -16,10 +16,10 @@ class KeycloakAdminAdapter:
     чтобы все consumers работали без изменений.
     """
 
-    def __init__(self, realm: str):
+    def __init__(self, realm: str, attribute_fields: list[str] | None = None):
         self.realm = realm
 
-        # Хардкод: какие поля являются basic, а какие — атрибутами
+        # Хардкод: какие поля являются basic (стандартные поля Keycloak)
         self.basic_fields = [
             "email",
             "username",
@@ -28,14 +28,16 @@ class KeycloakAdminAdapter:
             "enabled",
             "emailVerified",
         ]
-        # TODO надо подумать о динамическом определениии полей , это пока что для презентации
-        self.attribute_fields = ["region_code", "municipality_id"]
+        # Пользовательские атрибуты импортируются только из правил реалма
+        # (rule_type="attribute"); без правил атрибуты не сохраняются.
+        self.attribute_fields = list(attribute_fields) if attribute_fields else []
 
         # Подклассы — создаются один раз в __init__
         self._conn = KeycloakConnection(realm)
         self._user_repo = UserRepository(self._conn)
         self._attr_repo = AttributeRepository(self._conn)
         self._group_repo = GroupRepository(self._conn)
+
         self._csv_service = CsvImportService(
             user_repo=self._user_repo,
             attr_repo=self._attr_repo,
@@ -139,6 +141,7 @@ class KeycloakAdminAdapter:
                 "skipped": len(list_of_dicts) if list_of_dicts else 0,
                 "errors": [f"Критическая ошибка при загрузке: {str(e)}"],
                 "group_warnings": 0,
+                "attribute_warnings": [],
             }
 
     # ---- CsvImportService (доп) ------------------------------------------

@@ -79,6 +79,7 @@ def api_get_rules(
                 "rule_name": r.rule_name,
                 "is_required": r.is_required,
                 "description": r.description,
+                "field_type": r.field_type or "",
             }
             for r in rules
         ]
@@ -120,12 +121,13 @@ def api_set_rules(
 @router.delete("/api/validation/rules")
 def api_delete_rules(
     rule_type: str | None = Query(None),
+    rule_name: str | None = Query(None),
     realm: str = Query("master"),
     db: Session = Depends(get_db),
 ):
-    """Удалить правила (все или по типу)."""
+    """Удалить правила (по имени, по типу или всё)."""
     service = _make_service(realm, db)
-    service.delete_rules(rule_type)
+    service.delete_rules(rule_type, rule_name)
     return {"ok": True}
 
 
@@ -160,6 +162,7 @@ def api_validate_csv(
                 "missing_required": v.missing_required,
                 "unknown_fields": v.unknown_fields,
                 "missing_groups": v.missing_groups,
+                "invalid_types": v.invalid_types,
             }
         )
 
@@ -198,6 +201,7 @@ def api_validate_existing(
                 "email": v.email,
                 "missing_required": v.missing_required,
                 "missing_groups": v.missing_groups,
+                "invalid_types": v.invalid_types,
             }
         )
 
