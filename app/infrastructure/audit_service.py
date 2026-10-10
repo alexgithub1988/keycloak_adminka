@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.models.audit import AuditRecord
 
+UPLOADS_DIR = "uploads"
+
 
 class AuditService:
     """Сервис для работы с аудит-логами"""
@@ -44,14 +46,13 @@ class AuditService:
         file_path = None
         if file_content and file_name:
             # Create uploads directory if it doesn't exist
-            uploads_dir = "/home/alex/keycloak_adminka/uploads"
-            os.makedirs(uploads_dir, exist_ok=True)
+            os.makedirs(UPLOADS_DIR, exist_ok=True)
 
             # Generate unique filename to avoid conflicts
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             base_name, ext = os.path.splitext(file_name)
             unique_filename = f"{base_name}_{timestamp}{ext}"
-            file_path = os.path.join(uploads_dir, unique_filename)
+            file_path = os.path.join(UPLOADS_DIR, unique_filename)
 
             # Save file to filesystem
             try:

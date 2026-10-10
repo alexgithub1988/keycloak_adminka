@@ -1,4 +1,6 @@
 import os
+import re
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse
@@ -27,13 +29,16 @@ def get_db():
 
 @router.get("/download")
 def download_file(request: Request, realm: str, db: Session = Depends(get_db)):
-    filename = "output.csv"
+    realm_safe = re.sub(r"[^\w\-]+", "_", realm).strip("_") or "realm"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"users_{realm_safe}_{timestamp}.csv"
     file_path = os.path.join(DOWNLOAD_DIR, filename)
     users_list = normalize_download_handler(realm)
 
     # Базовые поля + группы; атрибуты и остальные ключи добавляем динамически
     all_fieldnames = [
         "username",
+        "email",
         "lastName",
         "firstName",
         "groups",
@@ -45,7 +50,10 @@ def download_file(request: Request, realm: str, db: Session = Depends(get_db)):
 
     csv_adapter = CsvAdapter()
     csv_adapter.dicts_to_csv(
-        dicts=users_list, fieldnames=all_fieldnames, filepath=DOWNLOAD_DIR
+        dicts=users_list,
+        fieldnames=all_fieldnames,
+        filepath=DOWNLOAD_DIR,
+        filename=filename,
     )
 
     # Получаем email пользователя из сессии и IP-адрес

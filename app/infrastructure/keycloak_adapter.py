@@ -149,3 +149,9 @@ class KeycloakAdminAdapter:
     def get_users_with_groups(self) -> list:
         """Получает список пользователей вместе с группами."""
         return self._csv_service.get_users_with_groups()
+
+    # ---- GroupRepository ---------------------------------------------------
+
+    def get_groups(self) -> list:
+        """Получает плоский список групп реалма ({id, name, path})."""
+        return self._group_repo.flatten_groups(self._group_repo.get_groups())

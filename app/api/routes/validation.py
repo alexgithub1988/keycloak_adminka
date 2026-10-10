@@ -162,6 +162,7 @@ def api_validate_csv(
                 "missing_required": v.missing_required,
                 "unknown_fields": v.unknown_fields,
                 "missing_groups": v.missing_groups,
+                "unknown_groups": v.unknown_groups,
                 "invalid_types": v.invalid_types,
             }
         )

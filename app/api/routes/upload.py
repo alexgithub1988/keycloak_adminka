@@ -101,6 +101,10 @@ def get_files(
                         parts.append(f"unknown: {', '.join(v.unknown_fields)}")
                     if v.missing_groups:
                         parts.append(f"no groups: {', '.join(v.missing_groups)}")
+                    if v.unknown_groups:
+                        parts.append(f"unknown groups: {', '.join(v.unknown_groups)}")
+                    if v.invalid_types:
+                        parts.append(f"invalid types: {', '.join(v.invalid_types)}")
                     error_parts.append(f"Row {v.row} ({v.email}): {'; '.join(parts)}")
                 detail = "; ".join(error_parts)
                 return RedirectResponse(

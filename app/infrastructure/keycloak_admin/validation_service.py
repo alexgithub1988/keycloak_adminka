@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.infrastructure.keycloak_adapter import KeycloakAdminAdapter
+from app.infrastructure.keycloak_admin.group_repository import GroupRepository
 from app.infrastructure.models.validation_rule import RealmValidationRule
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class RowViolation:
     empty_optional: list[str] = field(default_factory=list)
     unknown_fields: list[str] = field(default_factory=list)
     missing_groups: list[str] = field(default_factory=list)
+    unknown_groups: list[str] = field(default_factory=list)
     invalid_types: list[str] = field(default_factory=list)
 
 
@@ -81,10 +83,27 @@ class ValidationService:
                 "n",
                 "t",
                 "f",
-                "да",
-                "нет",
             }
         return True  # неизвестный тип — не блокируем
+
+    @staticmethod
+    def _group_ref_matches(rule_name: str, ref: str) -> bool:
+        """Проверяет, что ссылка на группу (имя или путь) соответствует правилу.
+
+        rule_name — имя группы из правила (например, «Basic» или «/Basic»).
+        ref — имя группы или её путь (например, «Basic» или «/Dept/Basic»).
+        """
+        rule = (rule_name or "").strip()
+        ref = (ref or "").strip()
+        if not rule or not ref:
+            return False
+        if rule.startswith("/"):
+            return ref == rule
+        if ref == rule:
+            return True
+        if ref.startswith("/"):
+            return ref == f"/{rule}" or ref.endswith(f"/{rule}")
+        return False
 
     # ================================================================
     # CRUD правил (только БД, через SQLAlchemy)
@@ -127,6 +146,15 @@ class ValidationService:
         }
 
         report = ValidationReport(total_rows=len(csv_data))
+
+        # Полный список групп реалма — для проверки существования групп из CSV.
+        flat_groups: list[dict] = []
+        if realm_admin is not None and hasattr(realm_admin, "get_groups"):
+            try:
+                flat_groups = realm_admin.get_groups()
+            except Exception as e:
+                logger.warning(f"Не удалось получить группы для валидации: {e}")
+
         known_fields = set(attr_rules.keys()) | {
             "groups",
             "email",
@@ -156,16 +184,32 @@ class ValidationService:
                 if raw and not self._check_type(raw, ftype):
                     violation.invalid_types.append(f"{attr_name} (ожидается {ftype})")
 
-            if required_groups:
-                groups_val = str(row.get("groups", "") or "").strip()
-                for grp in required_groups:
-                    if not groups_val or grp not in groups_val:
-                        violation.missing_groups.append(grp)
+            # Группы: проверяем существование указанных в CSV и наличие обязательных.
+            groups_val = str(row.get("groups", "") or "").strip()
+            resolved_group_refs: set[str] = set()
+            if groups_val:
+                for ref in groups_val.split(";"):
+                    ref = ref.strip()
+                    if not ref:
+                        continue
+                    group = GroupRepository.resolve_group(ref, flat_groups)
+                    if group is None:
+                        violation.unknown_groups.append(ref)
+                    else:
+                        resolved_group_refs.add(group.get("name", ""))
+                        resolved_group_refs.add(group.get("path", ""))
+
+            for grp in required_groups:
+                if not any(
+                    self._group_ref_matches(grp, ref) for ref in resolved_group_refs
+                ):
+                    violation.missing_groups.append(grp)
 
             if (
                 violation.missing_required
                 or violation.unknown_fields
                 or violation.missing_groups
+                or violation.unknown_groups
                 or violation.invalid_types
             ):
                 report.invalid_rows += 1
@@ -221,9 +265,15 @@ class ValidationService:
                 if raw and not self._check_type(raw, ftype):
                     violation.invalid_types.append(f"{attr_name} (ожидается {ftype})")
 
-            user_groups = str(user.get("groups", "") or "")
+            user_group_refs = {
+                g.strip()
+                for g in str(user.get("groups", "") or "").split(";")
+                if g.strip()
+            }
             for grp in required_groups:
-                if not user_groups or grp not in user_groups:
+                if not any(
+                    self._group_ref_matches(grp, ref) for ref in user_group_refs
+                ):
                     violation.missing_groups.append(grp)
 
             if (
@@ -250,18 +300,12 @@ class ValidationService:
     # ================================================================
 
     def _fetch_users_with_attributes(self) -> list[dict]:
+        # get_users_with_groups() возвращает пользователей с полем 'groups'
+        # (пути групп через ';') и раскладывает атрибуты на верхний уровень.
+        # Без этого поле 'groups' всегда пустое, и валидация обязательных
+        # групп ложно помечала всех пользователей как «без группы».
         adapter = KeycloakAdminAdapter(self.realm)
-        users = adapter.get_users()
-        result = []
-        for user in users:
-            attrs = user.pop("attributes", {})
-            for k, v in attrs.items():
-                if isinstance(v, list):
-                    user[k] = v[0] if v else ""
-                else:
-                    user[k] = v or ""
-            result.append(user)
-        return result
+        return adapter.get_users_with_groups()
 
     # ================================================================
     # БД CRUD

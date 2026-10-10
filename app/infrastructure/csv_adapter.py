@@ -17,12 +17,22 @@ class CsvAdapter:
 
         return list_of_dicts
 
-    def dicts_to_csv(self, dicts: list[dict], fieldnames: list, filepath: str):
-        """Из списка словарей пишем  в csv"""
-        filename = os.path.join(filepath, "output.csv")
-        with open(filename, "w", encoding="utf-8") as file:
+    def dicts_to_csv(
+        self,
+        dicts: list[dict],
+        fieldnames: list,
+        filepath: str,
+        filename: str = "output.csv",
+    ):
+        """Из списка словарей пишем в csv"""
+        file_path = os.path.join(filepath, filename)
+        with open(file_path, "w", encoding="utf-8") as file:
             writer = csv.DictWriter(
-                file, fieldnames=fieldnames, extrasaction="ignore", restval=""
+                file,
+                fieldnames=fieldnames,
+                extrasaction="ignore",
+                restval="",
+                quoting=csv.QUOTE_ALL,
             )
             writer.writeheader()
 

@@ -282,6 +282,7 @@ function showViolations(containerId, violations) {
         if (v.missing_required?.length) errors.push('Отсутствуют: ' + v.missing_required.join(', '));
         if (v.unknown_fields?.length) errors.push('Неизвестные поля: ' + v.unknown_fields.join(', '));
         if (v.missing_groups?.length) errors.push('Нет групп: ' + v.missing_groups.join(', '));
+        if (v.unknown_groups?.length) errors.push('Неизвестные группы: ' + v.unknown_groups.join(', '));
         if (v.invalid_types?.length) errors.push('Неверный тип: ' + v.invalid_types.join(', '));
         html += '<tr><td>' + (v.row || '-') + '</td><td>' + (v.email || '-') + '</td><td class="text-danger">' + errors.join('; ') + '</td><td><small class="text-muted">' + JSON.stringify(v) + '</small></td></tr>';
     });

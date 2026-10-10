@@ -36,6 +36,15 @@ def normalize_download_handler(realm: str) -> list:
             "access",
             "totp",
             "createdTimestamp",
+            # Внутренние/служебные поля Keycloak, не нужные в выгрузке
+            "id",
+            "self",
+            "origin",
+            "federationLink",
+            "serviceAccountClientId",
+            "userProfileMetadata",
+            "clientConsents",
+            "federatedIdentities",
         ]:
             normalized_user.pop(key, None)
         normalized_users.append(normalized_user)
