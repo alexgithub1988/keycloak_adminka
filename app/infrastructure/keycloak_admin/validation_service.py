@@ -75,16 +75,8 @@ class ValidationService:
             return value.lower() in {
                 "true",
                 "false",
-                "1",
-                "0",
-                "yes",
-                "no",
-                "y",
-                "n",
-                "t",
-                "f",
             }
-        return True  # неизвестный тип — не блокируем
+        return False
 
     @staticmethod
     def _group_ref_matches(rule_name: str, ref: str) -> bool:
