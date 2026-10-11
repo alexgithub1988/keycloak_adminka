@@ -25,7 +25,7 @@ class RealmValidationRule(Base):
     field_type = Column(
         String(20), nullable=True
     )  # "string" | "integer" | "boolean" — только для атрибутов
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
 
     __table_args__ = (
         UniqueConstraint("realm", "rule_type", "rule_name", name="uq_realm_rule"),
