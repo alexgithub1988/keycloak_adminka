@@ -29,14 +29,23 @@ def db_session():
 
 @pytest.fixture()
 def make_rule(db_session):
-    """Создаем правила и комитим в базу"""
+    """Создаем фабрику правила и комитим в базу"""
 
-    def _make(rule_type, rule_name, realm="test", is_required=False):
+    def _make(
+        rule_type,
+        rule_name,
+        realm="test",
+        is_required=False,
+        description=None,
+        field_type="string",
+    ):
         rule = RealmValidationRule(
             rule_type=rule_type,
             rule_name=rule_name,
             realm=realm,
             is_required=is_required,
+            description=description,
+            field_type=field_type,
         )
         db_session.add(rule)
         db_session.commit()
