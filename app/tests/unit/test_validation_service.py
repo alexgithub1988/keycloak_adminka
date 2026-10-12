@@ -63,3 +63,47 @@ def test_get_rules_filers_by_realm(db_session, make_rule):
     assert [r.rule_name for r in rules] == ["test1"]
     rules = ValidationService(db=db_session, realm="test2").get_rules()
     assert [r.rule_name for r in rules] == ["group"]
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        {"rule_type": "attribute", "rule_name": "email"},
+        {"rule_type": "group", "rule_name": "Basic"},
+    ],
+)
+def test_set_rules(db_session, rule):
+    service = ValidationService(db=db_session, realm="test")
+
+    result = service.set_rules([rule])
+    rules = service.get_rules()
+
+    assert result == [rule["rule_name"]]
+    assert rules[0].rule_type == rule["rule_type"]
+    assert rules[0].rule_name == rule["rule_name"]
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        {"rule_type": "attribute", "rule_name": ""},
+        {"rule_type": "attribute", "rule_name": " "},
+        {"rule_type": "attribute"},
+    ],
+)
+def test_set_rules_skips_empty_name(db_session, rule):
+    service = ValidationService(db=db_session, realm="test")
+    service.set_rules([rule])
+    assert service.get_rules() == []
+
+
+def test_delete_rules_by_name(db_session, make_rule):
+    make_rule(rule_type="attribute", rule_name="email")
+    make_rule(rule_type="group", rule_name="Basic")
+    service = ValidationService(db=db_session, realm="test")
+
+    assert len(service.get_rules()) == 2
+
+    service.delete_rules(rule_name="email")
+
+    assert [r.rule_name for r in service.get_rules()] == ["Basic"]
