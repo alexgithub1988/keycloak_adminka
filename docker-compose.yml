@@ -13,6 +13,7 @@ services:
       - keycloak_data:/opt/keycloak/data
     networks:
       - keycloak_network
+    restart: unless-stopped
 
   init:
     build:

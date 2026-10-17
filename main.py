@@ -30,8 +30,7 @@ app.add_middleware(AuthMiddleware)
 # Middleware сессий — добавляем ПОСЛЕДНИМ (станет outermost и отработает первым,
 # заполнив scope["session"] до того, как до него доберётся AuthMiddleware)
 app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET"),
+    SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"), max_age=3600
 )
 
 templates = Jinja2Templates(directory="app/templates")

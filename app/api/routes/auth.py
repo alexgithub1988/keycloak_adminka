@@ -26,7 +26,7 @@ def _get_redirect_uri(request: Request) -> str:
     return f"{scheme}://{host}:{port}/callback"
 
 
-@router.get("/login")
+@router.get("/login", include_in_schema=False)
 def login(request: Request):
     """Перенаправляет на страницу авторизации Keycloak."""
     redirect_uri = _get_redirect_uri(request)
@@ -41,7 +41,7 @@ def login(request: Request):
         return RedirectResponse(url="/?error=auth_error", status_code=303)
 
 
-@router.get("/callback")
+@router.get("/callback", include_in_schema=False)
 def callback(request: Request):
     """Обработка callback от Keycloak: обмен code на token."""
     redirect_uri = _get_redirect_uri(request)
@@ -102,7 +102,7 @@ def callback(request: Request):
         return RedirectResponse(url="/?error=login_failed", status_code=303)
 
 
-@router.get("/logout")
+@router.get("/logout", include_in_schema=False)
 def logout(request: Request):
     """Выход из системы — очищает сессию и редиректит на Keycloak logout."""
     redirect_uri = _get_redirect_uri(request)
