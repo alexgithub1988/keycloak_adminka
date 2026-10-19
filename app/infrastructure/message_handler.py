@@ -26,45 +26,36 @@ class MessageHandler:
             if request.query_params.get("success") == "upload_complete":
                 created = request.query_params.get("created", "0")
                 updated = request.query_params.get("updated", "0")
-                skipped = request.query_params.get("skipped", "0")
                 message = {
                     "type": "success",
                     "icon": "check-circle-fill",
                     "text": "Файл успешно загружен и пользователи созданы!",
                 }
-                stats = (
-                    f"Создано: {created}, Обновлено: {updated}, Пропущено: {skipped}"
-                )
+                stats = f"Создано: {created}, Обновлено: {updated}"
 
         elif "warning" in request.query_params:
             if request.query_params.get("warning") == "partial_success":
                 created = request.query_params.get("created", "0")
                 updated = request.query_params.get("updated", "0")
-                skipped = request.query_params.get("skipped", "0")
                 detail = request.query_params.get("detail", "")
                 message = {
                     "type": "warning",
                     "icon": "exclamation-triangle-fill",
                     "text": "Часть пользователей не создана/обновлена.",
                 }
-                stats = (
-                    f"Создано: {created}, Обновлено: {updated}, Пропущено: {skipped}"
-                )
+                stats = f"Создано: {created}, Обновлено: {updated}"
                 if detail:
                     stats = f"{stats}. Причины: {detail}"
             elif request.query_params.get("warning") == "attributes_not_saved":
                 created = request.query_params.get("created", "0")
                 updated = request.query_params.get("updated", "0")
-                skipped = request.query_params.get("skipped", "0")
                 detail = request.query_params.get("detail", "")
                 message = {
                     "type": "warning",
                     "icon": "exclamation-triangle-fill",
                     "text": "Пользователи загружены, но атрибуты не сохранены.",
                 }
-                stats = (
-                    f"Создано: {created}, Обновлено: {updated}, Пропущено: {skipped}"
-                )
+                stats = f"Создано: {created}, Обновлено: {updated}"
                 if detail:
                     stats = f"{stats}. {detail}"
 
@@ -77,13 +68,12 @@ class MessageHandler:
                 }
             elif request.query_params.get("error") == "upload_failed":
                 created = request.query_params.get("created", "0")
-                skipped = request.query_params.get("skipped", "0")
                 message = {
                     "type": "warning",
                     "icon": "exclamation-circle-fill",
                     "text": "Часть пользователей не была создана (возможно, дубликаты). Проверьте логи.",
                 }
-                stats = f"Создано: {created}, Пропущено: {skipped}"
+                stats = f"Создано: {created}"
             elif request.query_params.get("error") == "all_failed":
                 detail = request.query_params.get("detail", "")
                 message = {
